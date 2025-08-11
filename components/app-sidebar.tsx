@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart3, Building2, LayoutDashboard, Users, User, Home, Calendar, Clock, Trophy, Award } from "lucide-react"
+import { BarChart3, Building2, LayoutDashboard, Users, User, Home, Calendar, Clock, Trophy, Award, Shield } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -23,7 +23,13 @@ interface UserData {
   email: string
 }
 
-// Admin menu removed; admins now see standard user menu
+const adminItems = [
+  { title: 'Dashboard', url: '/admin-dashboard', icon: LayoutDashboard },
+  { title: 'Facility Approval', url: '/facility-approval', icon: Building2 },
+  { title: 'User Management', url: '/user-management', icon: Users },
+  { title: 'Reports / Moderation', url: '/reports', icon: Shield },
+  { title: 'Profile', url: '/profile', icon: User },
+]
 
 const facilityOwnerItems = [
   {
@@ -113,11 +119,13 @@ export function AppSidebar() {
       setUserData(parsedUser)
 
       switch (parsedUser.role) {
-        case "owner":
+        case 'admin':
+          setItems(adminItems)
+          break
+        case 'owner':
           setItems(facilityOwnerItems)
           break
-        case "admin": // fallthrough to user menu
-        case "user":
+        case 'user':
         default:
           setItems(userItems)
       }
@@ -127,12 +135,12 @@ export function AppSidebar() {
   const getSidebarTitle = () => {
     if (!userData) return "QuickCourt"
     switch (userData.role) {
-      case "owner":
-        return "Facility Owner"
-      case "admin":
-      case "user":
+      case 'admin':
+        return 'Admin'
+      case 'owner':
+        return 'Facility Owner'
       default:
-        return "QuickCourt"
+        return 'QuickCourt'
     }
   }
 

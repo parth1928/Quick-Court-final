@@ -4,34 +4,56 @@ import type { NextRequest } from "next/server"
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/signup", "/forgot-password", "/welcome"]
+  // Public (unauthenticated) pages ONLY; everything else requires auth
+  const publicRoutes = ["/", "/login", "/signup", "/welcome", "/forgot-password"]
+  if (publicRoutes.includes(pathname)) return NextResponse.next()
 
-  // Check if the current path is a public route
-  if (publicRoutes.includes(pathname)) {
-    return NextResponse.next()
-  }
-
-  // Get token from cookie (set by login/register routes)
-  const authToken = request.cookies.get("authToken")?.value
-  const user = authToken ? JSON.parse(Buffer.from(authToken.split(".")[1], 'base64url').toString()) : null
-
-  // If there's no token, redirect to login
+  const authToken = request.cookies.get('authToken')?.value
   if (!authToken) {
-    return NextResponse.redirect(new URL("/login", request.url))
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Handle routing based on user role
-  if (user) {
-    // Facility owner routes
-    if (pathname.startsWith("/facility") && user.role !== "owner") {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
+  let user: any = null
+  try {
+    user = JSON.parse(Buffer.from(authToken.split('.')[1], 'base64url').toString())
+  } catch {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
 
-    // User routes
-    if (pathname.startsWith("/user-home") && user.role !== "user") {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
+  // Explicit role route maps (exact or prefix checks)
+  const adminOnly: ((p:string)=>boolean)[] = [
+    p => p === '/admin-dashboard',
+    p => p === '/facility-approval',
+    p => p === '/user-management',
+    p => p === '/reports',
+  ]
+  const ownerOnly: ((p:string)=>boolean)[] = [
+    p => p === '/facility-dashboard',
+    p => p === '/facility-management',
+    p => p === '/court-management',
+    p => p === '/time-slot-management',
+    p => p === '/booking-overview',
+    p => p === '/tournament-hosting',
+    p => p === '/my-facilities',
+  ]
+  const userOnly: ((p:string)=>boolean)[] = [
+    p => p === '/user-home',
+    p => p === '/my-bookings',
+    p => p === '/my-tournaments',
+  ]
+
+  const isAdminRoute = adminOnly.some(fn => fn(pathname))
+  const isOwnerRoute = ownerOnly.some(fn => fn(pathname))
+  const isUserRoute = userOnly.some(fn => fn(pathname))
+
+  if (isAdminRoute && user.role !== 'admin') {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+  if (isOwnerRoute && user.role !== 'owner') {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+  if (isUserRoute && user.role !== 'user') {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   return NextResponse.next()
