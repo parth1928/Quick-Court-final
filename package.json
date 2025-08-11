@@ -8,6 +8,7 @@
     "lint": "next lint",
     "start": "next start",
     "seed": "node scripts/seed-simple.js"
+  ,"seed:venues": "node scripts/seed-venues.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

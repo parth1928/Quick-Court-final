@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Card, CardContent } from "@/components/ui/card"
@@ -12,74 +12,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { MapPin, Star, Filter, ChevronLeft, ChevronRight } from "lucide-react"
 
-const venues = [
-  {
-    id: 1,
-    name: "Elite Sports Complex",
-    location: "Andheri, Mumbai",
-    sports: ["Basketball", "Tennis", "Volleyball"],
-    price: 500,
-    rating: 4.8,
-    reviews: 124,
-    image: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=400&q=80",
-    amenities: ["Parking", "Locker Rooms", "Cafeteria"],
-  },
-  {
-    id: 2,
-    name: "Community Recreation Center",
-    location: "Koramangala, Bengaluru",
-    sports: ["Volleyball", "Badminton", "Table Tennis"],
-    price: 300,
-    rating: 4.6,
-    reviews: 89,
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
-    amenities: ["Parking", "Locker Rooms"],
-  },
-  {
-    id: 3,
-    name: "Premier Tennis Club",
-    location: "CP, Delhi",
-    sports: ["Tennis"],
-    price: 800,
-    rating: 4.9,
-    reviews: 156,
-    image: "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=400&q=80",
-    amenities: ["Parking", "Pro Shop", "Restaurant"],
-  },
-  {
-    id: 4,
-    name: "Urban Basketball Arena",
-    location: "Bandra, Mumbai",
-    sports: ["Basketball"],
-    price: 400,
-    rating: 4.7,
-    reviews: 78,
-    image: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=400&q=80",
-    amenities: ["Parking", "Locker Rooms", "Snack Bar"],
-  },
-  {
-    id: 5,
-    name: "Fitness & Sports Hub",
-    location: "Hitech City, Hyderabad",
-    sports: ["Basketball", "Volleyball", "Badminton"],
-    price: 350,
-    rating: 4.5,
-    reviews: 92,
-    image: "https://images.unsplash.com/photo-1519864600265-abb23847ef2c?auto=format&fit=crop&w=400&q=80",
-    amenities: ["Parking", "Gym", "Locker Rooms"],
-  },
-  {
-    id: 6,
-    name: "Riverside Tennis Courts",
-    location: "Salt Lake, Kolkata",
-    sports: ["Tennis"],
-    price: 600,
-    rating: 4.8,
-    reviews: 67,
-    image: "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=400&q=80",
-    amenities: ["Parking", "Pro Shop"],
-  },
-]
+interface VenueCard {
+  id: string
+  name: string
+  location: string
+  sports: string[]
+  price: number
+  rating: number
+  reviews: number
+  image: string
+  amenities: string[]
+  description: string
+}
 
 export default function VenuesPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -88,9 +32,34 @@ export default function VenuesPage() {
   const [selectedRating, setSelectedRating] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
+  const [venues, setVenues] = useState<VenueCard[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchVenues = async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        view: 'card',
+        limit: '100', // fetch a large batch to paginate client-side
+        ...(selectedSport !== 'all' && { sport: selectedSport })
+      })
+      const res = await fetch(`/api/venues?${params.toString()}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to load venues')
+      if (!json.venues) throw new Error('No venues data returned')
+      setVenues(json.venues)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch once on mount and when sport filter changes
+  useEffect(() => { fetchVenues(); setCurrentPage(1) }, [selectedSport])
 
   const itemsPerPage = 6
-  const totalPages = Math.ceil(venues.length / itemsPerPage)
 
   const filteredVenues = venues.filter((venue) => {
     const matchesSearch =
@@ -104,7 +73,18 @@ export default function VenuesPage() {
     return matchesSearch && matchesSport && matchesPrice && matchesRating
   })
 
+  const totalPages = Math.ceil(filteredVenues.length / itemsPerPage) || 1
   const paginatedVenues = filteredVenues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  // Ensure current page not beyond range after filters change
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages || 1)
+    }
+  }, [totalPages, currentPage])
+
+  if (loading) return <div className="p-8">Loading venues...</div>
+  if (error) return <div className="p-8 text-red-600">{error}</div>
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -230,6 +210,7 @@ export default function VenuesPage() {
                   <MapPin className="h-4 w-4 mr-1" />
                   {venue.location}
                 </p>
+                <p className="text-gray-600 text-sm mb-3 line-clamp-2">{venue.description}</p>
                 <div className="flex flex-wrap gap-1 mb-3">
                   {venue.sports.slice(0, 2).map((sport) => (
                     <Badge key={sport} variant="secondary" className="text-xs">

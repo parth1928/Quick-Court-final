@@ -33,6 +33,7 @@ const bookings = [
 
 export default function MyBookingsPage() {
   const [userData, setUserData] = useState<any>(null)
+  const [filterStatus, setFilterStatus] = useState("All")
   const router = useRouter()
 
   useEffect(() => {
@@ -43,13 +44,15 @@ export default function MyBookingsPage() {
     }
 
     const parsedUser = JSON.parse(user)
-  if (parsedUser.role !== "user") {
+    if (parsedUser.role !== "user") {
       router.push("/login")
       return
     }
 
     setUserData(parsedUser)
   }, [router])
+
+  const filteredBookings = bookings.filter((booking) => filterStatus === "All" || booking.status === filterStatus)
 
   if (!userData) {
     return (
@@ -69,8 +72,27 @@ export default function MyBookingsPage() {
         <p className="text-gray-600 mt-2">View and manage your venue bookings</p>
       </div>
 
+      {/* Filter Buttons */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {["All", "Upcoming", "Completed", "Cancelled"].map((status) => (
+          <Button
+            key={status}
+            size="sm"
+            onClick={() => setFilterStatus(status)}
+            className={
+              filterStatus === status
+                ? "bg-black text-white border-black"
+                : "bg-white text-black border-black hover:bg-gray-100"
+            }
+            variant="outline"
+          >
+            {status}
+          </Button>
+        ))}
+      </div>
+
       <div className="space-y-4">
-        {bookings.map((booking) => (
+        {filteredBookings.map((booking) => (
           <Card key={booking.id} className="border-gray-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -115,6 +137,13 @@ export default function MyBookingsPage() {
             </CardContent>
           </Card>
         ))}
+        {filteredBookings.length === 0 && (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-gray-500">No bookings found for the selected filter.</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

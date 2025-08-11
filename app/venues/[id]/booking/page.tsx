@@ -11,6 +11,8 @@ import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { CalendarDays, Clock, MapPin, CreditCard } from "lucide-react"
+import PaySimulator from "@/components/pay-simulator"
+import { toast } from "@/components/ui/use-toast"
 
 const courts = [
   { id: 1, name: "Basketball Court A", sport: "Basketball", price: 700 },
@@ -263,14 +265,71 @@ export default function BookingPage() {
                   </>
                 )}
 
-                <Button
-                  className="w-full"
-                  size="lg"
-                  disabled={!selectedCourt || !selectedDate || selectedTimeSlots.length === 0}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Proceed to Payment
-                </Button>
+                {/* Payment Integration */}
+                {!selectedCourt || !selectedDate || selectedTimeSlots.length === 0 ? (
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    disabled
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Complete Booking Details
+                  </Button>
+                ) : (
+                  <PaySimulator
+                    amount={total}
+                    descriptor={`Venue Booking - ${selectedCourtData?.name} on ${selectedDate?.toLocaleDateString()}`}
+                    buttonLabel="Book & Pay Now"
+                    onSuccess={(tx) => {
+                      // Handle successful booking
+                      console.log("Booking successful:", tx)
+                      
+                      // Store booking data (in real app, this would go to your API)
+                      const bookingData = {
+                        transactionId: tx.id,
+                        venue: "Elite Sports Complex", // This should come from props or API
+                        court: selectedCourtData?.name,
+                        sport: selectedCourtData?.sport,
+                        date: selectedDate?.toLocaleDateString(),
+                        timeSlots: selectedTimeSlots,
+                        amount: total,
+                        status: "Confirmed"
+                      }
+                      
+                      // Example API call (uncomment for real implementation):
+                      // await fetch("/api/bookings", { 
+                      //   method: "POST", 
+                      //   body: JSON.stringify(bookingData) 
+                      // })
+                      
+                      toast({
+                        title: "Booking Confirmed!",
+                        description: `Redirecting to confirmation page...`,
+                      })
+                      
+                      // Redirect to payment completed page with booking details
+                      const queryParams = new URLSearchParams({
+                        txId: tx.id,
+                        amount: total.toString(),
+                        venue: "Elite Sports Complex",
+                        court: selectedCourtData?.name || "",
+                        date: selectedDate?.toLocaleDateString() || "",
+                        timeSlots: selectedTimeSlots.join(',')
+                      })
+                      
+                      setTimeout(() => {
+                        window.location.href = `/payment-completed?${queryParams.toString()}`
+                      }, 1000)
+                    }}
+                    onFailure={() => {
+                      toast({
+                        title: "Payment Failed",
+                        description: "Please try again or use a different payment method",
+                        variant: "destructive",
+                      })
+                    }}
+                  />
+                )}
 
                 <div className="text-center text-xs text-gray-500">
                   <p>Free cancellation up to 24 hours before your booking</p>

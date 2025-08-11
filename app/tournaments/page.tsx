@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trophy, Calendar, MapPin, Users, Filter, Search, Clock, Star } from "lucide-react"
+import PaySimulator from "@/components/pay-simulator"
+import { toast } from "@/components/ui/use-toast"
 
 interface Tournament {
   id: number
@@ -399,11 +401,60 @@ export default function TournamentsPage() {
                       </Button>
                     </Link>
                     {tournament.status === "open" && getAvailableSpots(tournament) > 0 && (
-                      <Link href={`/tournaments/${tournament.id}/register`} className="flex-1">
-                        <Button className="w-full">
-                          Register Now
-                        </Button>
-                      </Link>
+                      <div className="flex-1">
+                        <PaySimulator
+                          amount={tournament.entryFee}
+                          descriptor={`Tournament Registration - ${tournament.name}`}
+                          buttonLabel="Register & Pay"
+                          onSuccess={(tx) => {
+                            // Handle successful tournament registration
+                            console.log("Tournament registration successful:", tx)
+                            
+                            // Store registration data (in real app, this would go to your API)
+                            const registrationData = {
+                              transactionId: tx.id,
+                              tournamentId: tournament.id,
+                              tournamentName: tournament.name,
+                              entryFee: tournament.entryFee,
+                              registrationDate: new Date().toISOString(),
+                              status: "Registered"
+                            }
+                            
+                            // Example API call (uncomment for real implementation):
+                            // await fetch("/api/tournaments/register", { 
+                            //   method: "POST", 
+                            //   body: JSON.stringify(registrationData) 
+                            // })
+                            
+                            toast({
+                              title: "Registration Successful!",
+                              description: `Redirecting to confirmation page...`,
+                            })
+                            
+                            // Redirect to payment completed page with tournament details
+                            const queryParams = new URLSearchParams({
+                              txId: tx.id,
+                              amount: tournament.entryFee.toString(),
+                              type: "tournament",
+                              tournamentId: tournament.id.toString(),
+                              tournamentName: tournament.name,
+                              venue: tournament.venue,
+                              startDate: tournament.startDate
+                            })
+                            
+                            setTimeout(() => {
+                              window.location.href = `/payment-completed?${queryParams.toString()}`
+                            }, 1000)
+                          }}
+                          onFailure={() => {
+                            toast({
+                              title: "Registration Failed",
+                              description: "Please try again or use a different payment method",
+                              variant: "destructive",
+                            })
+                          }}
+                        />
+                      </div>
                     )}
                     {tournament.status === "closed" && (
                       <Button disabled className="flex-1">
