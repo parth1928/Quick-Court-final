@@ -51,28 +51,32 @@ export default function SignUpPage() {
           password: formData.password,
           role: userType,
           phone: formData.phone.trim() || "+1234567890",
+          step: 'register'
         }),
       })
 
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || data.message || "Registration failed")
 
-      // Store lightweight user info (token assumed HTTP-only cookie)
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ ...data.user, loginTime: new Date().toISOString() })
-      )
-
-      // Decide route; skip OTP for facility owners (temporary disable for owners)
-      let route = '/user-home'
-      if (data.user.role === 'owner') route = '/facility-dashboard'
-      if (data.user.role === 'admin') route = '/admin-dashboard'
-      if (data.user.role === 'owner') {
+      if (data.step === 'verify_otp') {
+        // Show OTP modal for verification
+        setShowOTPModal(true)
+        // Set route based on user type for after OTP verification
+        let route = '/user-home'
+        if (userType === 'owner') route = '/facility-dashboard'
+        if (userType === 'admin') route = '/admin-dashboard'
+        setPostSignupRoute(route)
+      } else {
+        // Direct registration without OTP (shouldn't happen in new flow)
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ ...data.user, loginTime: new Date().toISOString() })
+        )
+        let route = '/user-home'
+        if (data.user.role === 'owner') route = '/facility-dashboard'
+        if (data.user.role === 'admin') route = '/admin-dashboard'
         router.push(route)
-        return
       }
-      setPostSignupRoute(route)
-      setShowOTPModal(true)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed"
       setErrorMsg(msg)
@@ -100,10 +104,87 @@ export default function SignUpPage() {
   }
 
   const handleVerifyOTP = async () => {
-    // TODO: call backend to verify OTP with the 6-digit code
-    // const code = otp.join("")
-    setShowOTPModal(false)
-    router.push(postSignupRoute)
+    const code = otp.join("")
+    if (code.length !== 6) {
+      setErrorMsg("Please enter the complete 6-digit code")
+      return
+    }
+
+    setIsSubmitting(true)
+    setErrorMsg(null)
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          otp: code,
+          step: 'verify_otp'
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        if (data.maxAttemptsExceeded) {
+          setErrorMsg("Too many incorrect attempts. Please sign up again.")
+          setShowOTPModal(false)
+          // Reset form or redirect to signup
+          setTimeout(() => {
+            window.location.reload()
+          }, 2000)
+          return
+        }
+        throw new Error(data.error || "OTP verification failed")
+      }
+
+      // Success - account created
+      localStorage.setItem(
+        "user",
+        JSON.stringify({ ...data.user, loginTime: new Date().toISOString() })
+      )
+
+      setShowOTPModal(false)
+      router.push(postSignupRoute)
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "OTP verification failed"
+      setErrorMsg(msg)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleResendOTP = async () => {
+    setErrorMsg(null)
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch("/api/auth/resend-registration-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to resend code")
+      }
+
+      // Clear current OTP input
+      setOtp(["", "", "", "", "", ""])
+      alert("A new verification code has been sent to your email.")
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to resend code"
+      setErrorMsg(msg)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -114,8 +195,7 @@ export default function SignUpPage() {
           <img
             src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754908993~exp=1754912593~hmac=50369d3d421502b36127f15897d3a3cbfa5e32ad16b54a46046fb458e0a6b157&w=360%20360w"
             alt="Sign up"
-            className="object-cover object-center w-full h-full rounded-xl"
-            style={{ minHeight: '400px', maxHeight: '800px' }}
+            className="object-cover object-center w-full h-full rounded-xl min-h-[400px] max-h-[800px]"
           />
         </div>
 
@@ -304,23 +384,33 @@ export default function SignUpPage() {
                 variant="outline"
                 className="flex-1 border-gray-300 bg-transparent"
                 onClick={() => setShowOTPModal(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button className="flex-1 bg-gray-900 hover:bg-gray-800" onClick={handleVerifyOTP}>
-                Verify
+              <Button 
+                className="flex-1 bg-gray-900 hover:bg-gray-800" 
+                onClick={handleVerifyOTP}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Verifying...' : 'Verify'}
               </Button>
             </div>
+
+            {errorMsg && (
+              <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded">
+                {errorMsg}
+              </div>
+            )}
 
             <div className="text-center">
               <Button
                 variant="link"
                 className="text-sm text-gray-900"
-                onClick={() => {
-                  // TODO: call resend endpoint
-                }}
+                onClick={handleResendOTP}
+                disabled={isSubmitting}
               >
-                Resend Code
+                {isSubmitting ? 'Sending...' : 'Resend Code'}
               </Button>
             </div>
           </div>
