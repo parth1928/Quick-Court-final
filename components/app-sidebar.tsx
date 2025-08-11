@@ -101,6 +101,11 @@ const userItems = [
     icon: Building2,
   },
   {
+    title: "Matches",
+    url: "/matches",
+    icon: Users,
+  },
+  {
     title: "My Bookings",
     url: "/my-bookings",
     icon: Calendar,
