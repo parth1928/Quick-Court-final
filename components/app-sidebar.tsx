@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart3, Building2, LayoutDashboard, Shield, Users, User, Home, Calendar, Clock } from "lucide-react"
+import { BarChart3, Building2, LayoutDashboard, Shield, Users, User, Home, Calendar, Clock, Trophy, Award } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -38,6 +38,11 @@ const adminItems = [
     title: "User Management",
     url: "/user-management",
     icon: Users,
+  },
+  {
+    title: "Tournament Management",
+    url: "/tournament-management",
+    icon: Trophy,
   },
   {
     title: "Reports & Moderation",
@@ -83,6 +88,11 @@ const facilityOwnerItems = [
     icon: Calendar,
   },
   {
+    title: "Tournament Hosting",
+    url: "/tournament-hosting",
+    icon: Trophy,
+  },
+  {
     title: "Profile",
     url: "/profile",
     icon: User,
@@ -104,6 +114,16 @@ const userItems = [
     title: "My Bookings",
     url: "/my-bookings",
     icon: Calendar,
+  },
+  {
+    title: "Tournaments",
+    url: "/tournaments",
+    icon: Trophy,
+  },
+  {
+    title: "My Tournaments",
+    url: "/my-tournaments",
+    icon: Award,
   },
   {
     title: "Profile",
