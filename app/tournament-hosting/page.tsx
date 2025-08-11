@@ -19,6 +19,7 @@ import {
   Edit, Trash2, Eye, Mail, Phone, Clock, Award, Target, Info
 } from "lucide-react"
 import { format } from "date-fns"
+import { PriceRangeSlider, MinimalSlider } from "@/components/ui/enhanced-slider"
 
 interface HostedTournament {
   id: number
@@ -387,13 +388,16 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess }: {
     contactPhone: "",
     rules: [""]
   })
+  
+  const [entryFeeRange, setEntryFeeRange] = useState([2500])
+  const [prizePoolRange, setPrizePoolRange] = useState([50000])
 
   const handleSubmit = () => {
     const newTournament: Omit<HostedTournament, 'id'> = {
       ...formData,
       maxParticipants: parseInt(formData.maxParticipants),
-      entryFee: parseInt(formData.entryFee),
-      prizePool: parseInt(formData.prizePool),
+      entryFee: entryFeeRange[0],
+      prizePool: prizePoolRange[0],
       currentParticipants: 0,
       status: "draft",
       courts: ["Court A", "Court B"],
@@ -550,24 +554,36 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess }: {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="entryFee">Entry Fee (₹) *</Label>
-              <Input
-                id="entryFee"
-                type="number"
-                value={formData.entryFee}
-                onChange={(e) => setFormData(prev => ({ ...prev, entryFee: e.target.value }))}
-                placeholder="2500"
-              />
+              <Label>Entry Fee (₹) *</Label>
+              <div className="px-2">
+                <MinimalSlider 
+                  value={entryFeeRange} 
+                  onValueChange={setEntryFeeRange} 
+                  max={10000} 
+                  min={500} 
+                  step={250}
+                  color="green"
+                />
+                <div className="text-sm text-gray-600 mt-1 text-center">
+                  ₹{entryFeeRange[0].toLocaleString('en-IN')}
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prizePool">Prize Pool (₹)</Label>
-              <Input
-                id="prizePool"
-                type="number"
-                value={formData.prizePool}
-                onChange={(e) => setFormData(prev => ({ ...prev, prizePool: e.target.value }))}
-                placeholder="50000"
-              />
+              <Label>Prize Pool (₹)</Label>
+              <div className="px-2">
+                <MinimalSlider 
+                  value={prizePoolRange} 
+                  onValueChange={setPrizePoolRange} 
+                  max={200000} 
+                  min={10000} 
+                  step={5000}
+                  color="yellow"
+                />
+                <div className="text-sm text-gray-600 mt-1 text-center">
+                  ₹{prizePoolRange[0].toLocaleString('en-IN')}
+                </div>
+              </div>
             </div>
           </div>
 

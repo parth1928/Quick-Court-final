@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Clock, Wrench } from "lucide-react"
+import { TimeRangeSlider } from "@/components/ui/enhanced-slider"
 
 const courts = [
   { id: 1, name: "Basketball Court A", sport: "Basketball" },
@@ -35,6 +36,7 @@ export default function TimeSlotManagementPage() {
   const [userData, setUserData] = useState<any>(null)
   const [selectedCourt, setSelectedCourt] = useState<string>("")
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+  const [operatingHours, setOperatingHours] = useState([9, 22]) // 9 AM to 10 PM
   const [availability, setAvailability] = useState<{ [key: string]: "available" | "booked" | "maintenance" }>({})
   const router = useRouter()
 
@@ -135,6 +137,35 @@ export default function TimeSlotManagementPage() {
               ))}
             </SelectContent>
           </Select>
+        </CardContent>
+      </Card>
+
+      {/* Operating Hours */}
+      <Card className="border-gray-200">
+        <CardHeader>
+          <CardTitle className="text-gray-900 flex items-center">
+            <Clock className="h-5 w-5 mr-2" />
+            Set Operating Hours
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Configure the daily operating hours for your facility
+            </p>
+            <TimeRangeSlider 
+              value={operatingHours} 
+              onValueChange={setOperatingHours} 
+              min={6} 
+              max={23}
+            />
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>These hours will apply to the time slots shown below</span>
+              <Button variant="outline" size="sm" className="h-8">
+                Apply to All Courts
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
