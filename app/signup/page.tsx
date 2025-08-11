@@ -63,9 +63,14 @@ export default function SignUpPage() {
         JSON.stringify({ ...data.user, loginTime: new Date().toISOString() })
       )
 
-      // Decide route but wait for OTP verify (keeps UI compact and flow clear)
-  let route = "/user-home"
-  if (data.user.role === "owner") route = "/facility-dashboard"
+      // Decide route; skip OTP for facility owners (temporary disable for owners)
+      let route = '/user-home'
+      if (data.user.role === 'owner') route = '/facility-dashboard'
+      if (data.user.role === 'admin') route = '/admin-dashboard'
+      if (data.user.role === 'owner') {
+        router.push(route)
+        return
+      }
       setPostSignupRoute(route)
       setShowOTPModal(true)
     } catch (err) {
@@ -107,7 +112,7 @@ export default function SignUpPage() {
         {/* Left: Illustration (small & fixed to reduce scroll) */}
         <div className="hidden md:flex md:w-5/12 bg-gray-100 items-center justify-center p-4">
           <img
-            src="/placeholder-user.jpg"
+            src="/woman.jpg"
             alt="Sign up"
             className="h-72 w-full max-w-sm rounded-lg object-cover"
           />

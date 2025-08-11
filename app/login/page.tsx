@@ -44,16 +44,19 @@ export default function LoginPage() {
   // Store user data locally (token is already set in HTTP-only cookie by API)
   localStorage.setItem("user", JSON.stringify(data.user))
 
-      // Redirect based on user type (admin treated as standard user-home now)
+      // Redirect based on user type
       switch (data.user.role) {
+        case "admin":
+          router.push("/admin-dashboard")
+          break
         case "owner":
           router.push("/facility-dashboard")
           break
         case "user":
-        case "admin":
-        default:
           router.push("/user-home")
           break
+        default:
+          router.push("/")
       }
     } catch (error: any) {
       console.error('Login error:', error);
@@ -69,9 +72,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="flex w-full max-w-4xl bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Left side: Photo */}
-        <div className="hidden md:flex md:w-1/2 bg-gray-100 items-center justify-center p-8">
-          <img
-            src="/placeholder-user.jpg"
+        <div className="hidden md:flex md:w-1/2 bg-gray-100 items-center justify-center">
+          <img src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754908993~exp=1754912593~hmac=50369d3d421502b36127f15897d3a3cbfa5e32ad16b54a46046fb458e0a6b157&w=360%20360w"
             alt="Login illustration"
             className="object-cover rounded-lg w-full h-96 max-h-full"
           />
