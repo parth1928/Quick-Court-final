@@ -14,7 +14,7 @@ export default function ClientLayout({
   const pathname = usePathname()
 
   // Pages that don't need the admin layout
-  const publicPages = ["/login", "/signup", "/forgot-password", "/welcome"]
+  const publicPages = ["/", "/login", "/signup", "/forgot-password", "/welcome"]
   const isPublicPage = publicPages.includes(pathname)
 
   if (isPublicPage) {

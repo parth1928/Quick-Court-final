@@ -103,7 +103,7 @@ const mockTournaments: Tournament[] = [
     status: "draft",
     difficulty: "Beginner",
     description: "Youth soccer league for ages 16-18",
-    organizer: "NYC Youth Sports",
+    organizer: "Mumbai Youth Sports",
     createdDate: "2024-02-01",
     isApproved: false
   }
@@ -129,8 +129,9 @@ export default function TournamentManagementPage() {
     }
 
   const parsedUser = JSON.parse(user)
-  if (parsedUser.role !== "admin") {
-      router.push("/login")
+  // Allow only facility owners to manage tournaments now (admins no special UI)
+  if (parsedUser.role !== "owner") {
+      router.push("/user-home")
       return
     }
 

@@ -11,9 +11,9 @@ const popularVenues = [
   {
     id: 1,
     name: "Elite Sports Complex",
-    location: "Downtown NYC",
+    location: "Andheri, Mumbai",
     sports: ["Basketball", "Tennis"],
-  price: "₹1200/hour",
+    price: "₹500/hour",
     rating: 4.8,
     image: "/placeholder.svg?height=200&width=300&text=Elite+Sports+Complex",
   },
@@ -22,7 +22,7 @@ const popularVenues = [
     name: "Community Recreation Center",
     location: "Brooklyn",
     sports: ["Volleyball", "Badminton"],
-  price: "₹950/hour",
+    price: "₹300/hour",
     rating: 4.6,
     image: "/placeholder.svg?height=200&width=300&text=Community+Center",
   },
@@ -31,7 +31,7 @@ const popularVenues = [
     name: "Premier Tennis Club",
     location: "Manhattan",
     sports: ["Tennis"],
-  price: "₹1100/hour",
+    price: "₹800/hour",
     rating: 4.9,
     image: "/placeholder.svg?height=200&width=300&text=Tennis+Club",
   },
@@ -143,12 +143,20 @@ export default function UserHomePage() {
                     </Badge>
                   ))}
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-4">
                   <span className="font-semibold text-gray-900">{venue.price}</span>
                   <div className="flex items-center">
                     <Star className="h-4 w-4 text-yellow-400 fill-current" />
                     <span className="text-sm ml-1 text-gray-700">{venue.rating}</span>
                   </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button asChild variant="default" size="sm">
+                    <a href={`/venues/${venue.id}/booking`}>Book</a>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <a href={`/venues/${venue.id}`}>View Details</a>
+                  </Button>
                 </div>
               </CardContent>
             </Card>

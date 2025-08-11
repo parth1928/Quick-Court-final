@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { formatInr } from "@/lib/format"
 import Link from "next/link"
 import { Header } from "@/components/header"
@@ -37,8 +37,13 @@ const timeSlots = [
 
 export default function BookingPage() {
   const [selectedCourt, setSelectedCourt] = useState<string>("")
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([])
+
+  // Fix hydration error: only set date on client
+  React.useEffect(() => {
+    setSelectedDate(new Date())
+  }, [])
 
   const selectedCourtData = courts.find((court) => court.id.toString() === selectedCourt)
   const totalHours = selectedTimeSlots.length
@@ -60,7 +65,7 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-  <Header />
+      {/* Removed duplicate Header to avoid double navbars */}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
@@ -179,7 +184,7 @@ export default function BookingPage() {
                   <>
                     <div>
                       <h4 className="font-semibold">Elite Sports Complex</h4>
-                      <p className="text-sm text-gray-600">123 Sports Avenue, Downtown NYC</p>
+                      <p className="text-sm text-gray-600">123 Sports Avenue, Andheri, Mumbai</p>
                     </div>
 
                     <Separator />

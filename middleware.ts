@@ -23,11 +23,6 @@ export function middleware(request: NextRequest) {
 
   // Handle routing based on user role
   if (user) {
-    // Admin routes
-    if (pathname.startsWith("/admin") && user.role !== "admin") {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
-
     // Facility owner routes
     if (pathname.startsWith("/facility") && user.role !== "owner") {
       return NextResponse.redirect(new URL("/login", request.url))

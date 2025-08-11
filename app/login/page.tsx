@@ -44,19 +44,16 @@ export default function LoginPage() {
   // Store user data locally (token is already set in HTTP-only cookie by API)
   localStorage.setItem("user", JSON.stringify(data.user))
 
-      // Redirect based on user type
+      // Redirect based on user type (admin treated as standard user-home now)
       switch (data.user.role) {
-        case "admin":
-          router.push("/admin-dashboard")
-          break
         case "owner":
           router.push("/facility-dashboard")
           break
         case "user":
+        case "admin":
+        default:
           router.push("/user-home")
           break
-        default:
-          router.push("/")
       }
     } catch (error: any) {
       console.error('Login error:', error);
@@ -70,106 +67,115 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <Link href="/welcome" className="flex items-center justify-center space-x-2 mb-8">
-            <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">QC</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">QuickCourt</span>
-          </Link>
-          <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
-          <p className="mt-2 text-gray-600">Sign in to your account</p>
+      <div className="flex w-full max-w-4xl bg-white rounded-lg shadow-lg overflow-hidden">
+        {/* Left side: Photo */}
+        <div className="hidden md:flex md:w-1/2 bg-gray-100 items-center justify-center p-8">
+          <img
+            src="/placeholder-user.jpg"
+            alt="Login illustration"
+            className="object-cover rounded-lg w-full h-96 max-h-full"
+          />
         </div>
-
-        {/* Login Form */}
-        <Card className="border-gray-200">
-          <CardHeader>
-            <CardTitle className="text-gray-900">Sign In</CardTitle>
-            <CardDescription className="text-gray-600">Enter your credentials to access your account</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              {/* User role selection removed: login only requires email & password */}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="border-gray-300"
-                  required
-                />
+        {/* Right side: Login Form */}
+        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center space-y-8">
+          {/* Header */}
+          <div className="text-center">
+            <Link href="/welcome" className="flex items-center justify-center space-x-2 mb-8">
+              <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">QC</span>
               </div>
+              <span className="text-xl font-bold text-gray-900">QuickCourt</span>
+            </Link>
+            <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
+            <p className="mt-2 text-gray-600">Sign in to your account</p>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">
-                  Password
-                </Label>
-                <div className="relative">
+          {/* Login Form */}
+          <Card className="border-gray-200">
+            <CardHeader>
+              <CardTitle className="text-gray-900">Sign In</CardTitle>
+              <CardDescription className="text-gray-600">Enter your credentials to access your account</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-gray-700">
+                    Email
+                  </Label>
                   <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="border-gray-300"
                     required
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    id="remember-me"
-                    name="remember-me"
-                    type="checkbox"
-                    className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300 rounded"
-                  />
-                  <Label htmlFor="remember-me" className="ml-2 text-sm text-gray-600">
-                    Remember me
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-gray-700">
+                    Password
                   </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="border-gray-300"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <Link href="/forgot-password" className="text-sm text-gray-900 hover:text-gray-700">
-                  Forgot password?
-                </Link>
-              </div>
 
-              <Button type="submit" className="w-full bg-gray-900 hover:bg-gray-800 text-white" disabled={isLoading}>
-                {isLoading ? "Signing In..." : "Sign In"}
-              </Button>
-
-              <div className="text-center">
-                <span className="text-sm text-gray-600">
-                  Don't have an account?{" "}
-                  <Link href="/signup" className="text-gray-900 hover:text-gray-700 font-medium">
-                    Sign up
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="remember-me"
+                      name="remember-me"
+                      type="checkbox"
+                      className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300 rounded"
+                    />
+                    <Label htmlFor="remember-me" className="ml-2 text-sm text-gray-600">
+                      Remember me
+                    </Label>
+                  </div>
+                  <Link href="/forgot-password" className="text-sm text-gray-900 hover:text-gray-700">
+                    Forgot password?
                   </Link>
-                </span>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+                </div>
+
+                <Button type="submit" className="w-full bg-gray-900 hover:bg-gray-800 text-white" disabled={isLoading}>
+                  {isLoading ? "Signing In..." : "Sign In"}
+                </Button>
+
+                <div className="text-center">
+                  <span className="text-sm text-gray-600">
+                    Don't have an account?{" "}
+                    <Link href="/signup" className="text-gray-900 hover:text-gray-700 font-medium">
+                      Sign up
+                    </Link>
+                  </span>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

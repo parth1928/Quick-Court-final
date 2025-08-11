@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { formatInr } from "@/lib/format"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,7 +17,7 @@ const bookings = [
     date: "2024-01-25",
     time: "4:00 PM - 5:00 PM",
     status: "Upcoming",
-  price: 1200,
+    price: 25,
   },
   {
     id: 2,
@@ -26,7 +27,7 @@ const bookings = [
     date: "2024-01-20",
     time: "2:00 PM - 3:00 PM",
     status: "Completed",
-  price: 950,
+    price: 40,
   },
 ]
 
@@ -97,7 +98,7 @@ export default function MyBookingsPage() {
                   {booking.time}
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
-                  <span className="font-semibold">₹{booking.price}</span>
+                  <span className="font-semibold">{formatInr(booking.price)}</span>
                 </div>
               </div>
 

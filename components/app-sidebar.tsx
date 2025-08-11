@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart3, Building2, LayoutDashboard, Shield, Users, User, Home, Calendar, Clock, Trophy, Award } from "lucide-react"
+import { BarChart3, Building2, LayoutDashboard, Users, User, Home, Calendar, Clock, Trophy, Award } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -23,38 +23,7 @@ interface UserData {
   email: string
 }
 
-const adminItems = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Facility Approval",
-    url: "/facility-approval",
-    icon: Building2,
-  },
-  {
-    title: "User Management",
-    url: "/user-management",
-    icon: Users,
-  },
-  {
-    title: "Tournament Management",
-    url: "/tournament-management",
-    icon: Trophy,
-  },
-  {
-    title: "Reports & Moderation",
-    url: "/reports",
-    icon: Shield,
-  },
-  {
-    title: "Profile",
-    url: "/profile",
-    icon: User,
-  },
-]
+// Admin menu removed; admins now see standard user menu
 
 const facilityOwnerItems = [
   {
@@ -135,7 +104,7 @@ const userItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const [userData, setUserData] = useState<UserData | null>(null)
-  const [items, setItems] = useState(adminItems)
+  const [items, setItems] = useState(userItems)
 
   useEffect(() => {
     const user = localStorage.getItem("user")
@@ -144,31 +113,24 @@ export function AppSidebar() {
       setUserData(parsedUser)
 
       switch (parsedUser.role) {
-        case "admin":
-          setItems(adminItems)
-          break
         case "owner":
           setItems(facilityOwnerItems)
           break
+        case "admin": // fallthrough to user menu
         case "user":
-          setItems(userItems)
-          break
         default:
-          setItems(adminItems)
+          setItems(userItems)
       }
     }
   }, [])
 
   const getSidebarTitle = () => {
-    if (!userData) return "QuickCourt Admin"
-
+    if (!userData) return "QuickCourt"
     switch (userData.role) {
-      case "admin":
-        return "QuickCourt Admin"
       case "owner":
         return "Facility Owner"
+      case "admin":
       case "user":
-        return "QuickCourt"
       default:
         return "QuickCourt"
     }

@@ -7,9 +7,9 @@ import ClientLayout from "./client-layout"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "QuickCourt Admin Dashboard",
-  description: "Administrative dashboard for QuickCourt facility management",
-    generator: 'v0.dev'
+  title: "QuickCourt",
+  description: "Book and manage sports facilities in India",
+  generator: 'v0.dev'
 }
 
 export default function RootLayout({

@@ -85,7 +85,7 @@ export default function VenueDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-  <Header />
+      {/* Removed duplicate Header to avoid double navbars */}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}

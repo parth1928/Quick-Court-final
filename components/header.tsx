@@ -38,15 +38,12 @@ export function Header() {
   }
 
   const getDisplayTitle = () => {
-    if (!userData) return "QuickCourt Admin"
-
+    if (!userData) return "QuickCourt"
     switch (userData.role) {
-      case "admin":
-        return "QuickCourt Admin"
       case "owner":
         return "Facility Owner Dashboard"
+      case "admin": // treat admin same as general user now
       case "user":
-        return "QuickCourt"
       default:
         return "QuickCourt"
     }

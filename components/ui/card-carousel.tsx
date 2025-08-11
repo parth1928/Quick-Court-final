@@ -18,22 +18,11 @@ import {
 
 import { Badge } from "@/components/ui/badge"
 
-
-interface CarouselImage {
-  src: string;
-  alt: string;
-  name?: string;
-  location?: string;
-  price?: number;
-  rating?: number;
-  reviews?: number;
-}
-
 interface CarouselProps {
-  images: CarouselImage[];
-  autoplayDelay?: number;
-  showPagination?: boolean;
-  showNavigation?: boolean;
+  images: { src: string; alt: string }[]
+  autoplayDelay?: number
+  showPagination?: boolean
+  showNavigation?: boolean
 }
 
 export const CardCarousel: React.FC<CarouselProps> = ({
@@ -47,130 +36,111 @@ export const CardCarousel: React.FC<CarouselProps> = ({
     width: 100%;
     padding-bottom: 50px;
   }
+  
   .swiper-slide {
     background-position: center;
     background-size: cover;
     width: 300px;
-    height: 400px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    margin: 0 10px;
+    /* height: 300px; */
+    /* margin: 20px; */
   }
+  
   .swiper-slide img {
     display: block;
     width: 100%;
-    height: 300px;
-    object-fit: cover;
-    border-radius: 1rem 1rem 0 0;
   }
-  .carousel-data {
-    margin-top: 0;
-    text-align: center;
-    background: #fff;
-    border-radius: 0 0 0.75rem 0.75rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    padding: 0.75rem 0.5rem 0.5rem 0.5rem;
-    width: 100%;
-    height: 100px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+  
+  
+  .swiper-3d .swiper-slide-shadow-left {
+    background-image: none;
   }
-  .carousel-data {
-    margin-top: 1rem;
-    text-align: center;
-    background: #fff;
-    border-radius: 0.75rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    padding: 0.75rem 0.5rem 0.5rem 0.5rem;
-    width: 90%;
-  }
-  .carousel-data h4 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-  }
-  .carousel-data p {
-    font-size: 0.95rem;
-    color: #555;
-    margin-bottom: 0.25rem;
-  }
-  .carousel-data .price {
-    color: #2563eb;
-    font-weight: 600;
-    font-size: 1rem;
-  }
-  .carousel-data .rating {
-    color: #fbbf24;
-    font-size: 0.95rem;
-    margin-left: 0.25rem;
-  }
-  .carousel-data .reviews {
-    color: #888;
-    font-size: 0.85rem;
-    margin-left: 0.25rem;
-  }
-  .carousel-data .location {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
+  .swiper-3d .swiper-slide-shadow-right{
+    background: none;
   }
   `
   return (
-    <section className="py-4">
+    <section className="w-ace-y-4">
       <style>{css}</style>
-      <div className="mx-auto w-full max-w-6xl">
-        <Swiper
-          spaceBetween={24}
-          autoplay={{
-            delay: autoplayDelay,
-            disableOnInteraction: false,
-          }}
-          effect={"slide"}
-          grabCursor={true}
-          centeredSlides={false}
-          loop={true}
-          slidesPerView={3}
-          pagination={showPagination}
-          navigation={
-            showNavigation
-              ? {
-                  nextEl: ".swiper-button-next",
-                  prevEl: ".swiper-button-prev",
-                }
-              : undefined
-          }
-          modules={[EffectCoverflow, Autoplay, Pagination, Navigation]}
-        >
-          {images.map((image, index) => (
-            <SwiperSlide key={index}>
-              <div className="carousel-card flex flex-col items-center w-full h-full">
-                <div className="carousel-photo w-full">
-                  <Image
-                    src={image.src}
-                    width={300}
-                    height={300}
-                    className="rounded-xl"
-                    alt={image.alt}
-                  />
-                </div>
-                <div className="carousel-data w-full">
-                  {image.name && <h4>{image.name}</h4>}
-                  {image.location && <p className="location">{image.location}</p>}
-                  {image.price !== undefined && <div className="price">₹{image.price}/hour</div>}
-                  {image.rating !== undefined && (
-                    <span className="rating">★ {image.rating}</span>
-                  )}
-                  {image.reviews !== undefined && (
-                    <span className="reviews">({image.reviews} reviews)</span>
-                  )}
-                </div>
+      <div className="mx-auto w-full max-w-4xl rounded-[24px] border border-black/5 p-2 shadow-sm md:rounded-t-[44px]">
+        <div className="relative mx-auto flex w-full flex-col rounded-[24px] border border-black/5 bg-neutral-800/5 p-2 shadow-sm md:items-start md:gap-8 md:rounded-b-[20px] md:rounded-t-[40px] md:p-2">
+          <Badge
+            variant="outline"
+            className="absolute left-4 top-6 rounded-[14px] border border-black/10 text-base md:left-6"
+          >
+            <SparklesIcon className="fill-[#EEBDE0] stroke-1 text-neutral-800" />{" "}
+            Latest component
+          </Badge>
+          <div className="flex flex-col justify-center pb-2 pl-4 pt-14 md:items-center">
+            <div className="flex gap-2">
+              <div>
+                <h3 className="text-4xl opacity-85 font-bold tracking-tight">
+                  Card Carousel
+                </h3>
+                <p>Seamless Images carousel animation.</p>
               </div>
-            </SwiperSlide>
-          ))}
-        </Swiper>
+            </div>
+          </div>
+
+          <div className="flex w-full items-center justify-center gap-4">
+            <div className="w-full">
+              <Swiper
+                spaceBetween={50}
+                autoplay={{
+                  delay: autoplayDelay,
+                  disableOnInteraction: false,
+                }}
+                effect={"coverflow"}
+                grabCursor={true}
+                centeredSlides={true}
+                loop={true}
+                slidesPerView={"auto"}
+                coverflowEffect={{
+                  rotate: 0,
+                  stretch: 0,
+                  depth: 100,
+                  modifier: 2.5,
+                }}
+                pagination={showPagination}
+                navigation={
+                  showNavigation
+                    ? {
+                        nextEl: ".swiper-button-next",
+                        prevEl: ".swiper-button-prev",
+                      }
+                    : undefined
+                }
+                modules={[EffectCoverflow, Autoplay, Pagination, Navigation]}
+              >
+                {images.map((image, index) => (
+                  <SwiperSlide key={index}>
+                    <div className="size-full rounded-3xl">
+                      <Image
+                        src={image.src}
+                        width={500}
+                        height={500}
+                        className="size-full rounded-xl"
+                        alt={image.alt}
+                      />
+                    </div>
+                  </SwiperSlide>
+                ))}
+                {images.map((image, index) => (
+                  <SwiperSlide key={index}>
+                    <div className="size-full rounded-3xl">
+                      <Image
+                        src={image.src}
+                        width={200}
+                        height={200}
+                        className="size-full rounded-xl"
+                        alt={image.alt}
+                      />
+                    </div>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   )

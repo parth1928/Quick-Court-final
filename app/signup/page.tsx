@@ -2,313 +2,324 @@
 
 import type React from "react"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Eye, EyeOff, Upload, User } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Eye, EyeOff } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function SignUpPage() {
+  const router = useRouter()
+
+  // UI state
   const [showPassword, setShowPassword] = useState(false)
-  const [userType, setUserType] = useState("user")
-  const [showOTPModal, setShowOTPModal] = useState(false)
-  const [otp, setOtp] = useState(["", "", "", "", "", ""])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    phone: "",
-  })
-  const router = useRouter()
+
+  // Auth state
+  const [userType, setUserType] = useState<"user" | "owner" | "admin">("user")
+  const [formData, setFormData] = useState({ fullName: "", email: "", password: "", phone: "" })
+
+  // OTP flow
+  const [showOTPModal, setShowOTPModal] = useState(false)
+  const [otp, setOtp] = useState(["", "", "", "", "", ""])
+  const [postSignupRoute, setPostSignupRoute] = useState("/")
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    
     setErrorMsg(null)
     setIsSubmitting(true)
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.fullName,
           email: formData.email,
           password: formData.password,
           role: userType,
-          phone: formData.phone.trim() || '+1234567890',
+          phone: formData.phone.trim() || "+1234567890",
         }),
-      });
+      })
 
-      const data = await response.json();
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || data.message || "Registration failed")
 
-      if (!response.ok) {
-        throw new Error(data.error || data.message || 'Registration failed');
-      }
+      // Store lightweight user info (token assumed HTTP-only cookie)
+      localStorage.setItem(
+        "user",
+        JSON.stringify({ ...data.user, loginTime: new Date().toISOString() })
+      )
 
-      // Store user (token already in HTTP-only cookie)
-      localStorage.setItem('user', JSON.stringify({
-        ...data.user,
-        loginTime: new Date().toISOString(),
-      }));
-
-      // Redirect based on user type
-      switch (data.user.role) {
-        case "admin":
-          router.push("/admin-dashboard")
-          break
-        case "owner":
-          router.push("/facility-dashboard")
-          break
-        case "user":
-          router.push("/user-home")
-          break
-        default:
-          router.push("/")
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-      const msg = error instanceof Error ? error.message : 'Registration failed'
+      // Decide route but wait for OTP verify (keeps UI compact and flow clear)
+  let route = "/user-home"
+  if (data.user.role === "owner") route = "/facility-dashboard"
+      setPostSignupRoute(route)
+      setShowOTPModal(true)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Registration failed"
       setErrorMsg(msg)
-      alert(msg)
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleOTPChange = (index: number, value: string) => {
-    if (value.length <= 1) {
-      const newOtp = [...otp]
-      newOtp[index] = value
-      setOtp(newOtp)
-
-      // Auto-focus next input
-      if (value && index < 5) {
-        const nextInput = document.getElementById(`otp-${index + 1}`)
-        nextInput?.focus()
-      }
+    if (value.length > 1) return
+    const newOtp = [...otp]
+    newOtp[index] = value.replace(/\D/g, "") // digits only
+    setOtp(newOtp)
+    if (value && index < 5) {
+      document.getElementById(`otp-${index + 1}`)?.focus()
     }
   }
 
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      document.getElementById(`otp-${index - 1}`)?.focus()
+    }
+    if (e.key === "ArrowLeft" && index > 0) document.getElementById(`otp-${index - 1}`)?.focus()
+    if (e.key === "ArrowRight" && index < 5) document.getElementById(`otp-${index + 1}`)?.focus()
+  }
+
   const handleVerifyOTP = async () => {
-    // In a real implementation, we would verify the OTP with the backend
-    // For now, we'll just close the modal as the registration is already complete
+    // TODO: call backend to verify OTP with the 6-digit code
+    // const code = otp.join("")
     setShowOTPModal(false)
+    router.push(postSignupRoute)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <Link href="/welcome" className="flex items-center justify-center space-x-2 mb-8">
-            <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">QC</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">QuickCourt</span>
-          </Link>
-          <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
-          <p className="mt-2 text-gray-600">Join QuickCourt and start managing venues</p>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="flex w-full max-w-4xl rounded-lg shadow-lg overflow-hidden bg-white">
+        {/* Left: Illustration (small & fixed to reduce scroll) */}
+        <div className="hidden md:flex md:w-5/12 bg-gray-100 items-center justify-center p-4">
+          <img
+            src="/placeholder-user.jpg"
+            alt="Sign up"
+            className="h-72 w-full max-w-sm rounded-lg object-cover"
+          />
         </div>
 
-        {/* Sign Up Form */}
-        <Card className="border-gray-200">
-          <CardHeader>
-            <CardTitle className="text-gray-900">Sign Up</CardTitle>
-            <CardDescription className="text-gray-600">Fill in your details to create an account</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSignUp} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="userType" className="text-gray-700">
-                  Account Type
-                </Label>
-                <Select value={userType} onValueChange={setUserType}>
-                  <SelectTrigger className="border-gray-300">
-                    <SelectValue placeholder="Select account type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="owner">Facility Owner</SelectItem>
-                  </SelectContent>
-                </Select>
+        {/* Right: Form (compact spacing) */}
+        <div className="w-full md:w-7/12 p-6 flex flex-col justify-center gap-5">
+          {/* Brand + Title */}
+          <div className="text-center space-y-1">
+            <Link href="/welcome" className="mx-auto mb-3 flex items-center justify-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900">
+                <span className="text-sm font-bold text-white">QC</span>
               </div>
+              <span className="text-xl font-bold text-gray-900">QuickCourt</span>
+            </Link>
+            <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
+            <p className="text-sm text-gray-600">Join QuickCourt and start managing venues</p>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="fullName" className="text-gray-700">
-                  Full Name
-                </Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="border-gray-300"
-                  required
-                />
-              </div>
+          {/* Card with condensed fields */}
+          <Card className="border-gray-200">
+            <CardContent className="pt-4">
+              <form onSubmit={handleSignUp} className="space-y-3">
+                {/* Role */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="userType" className="text-gray-700 text-sm">
+                    Account Type
+                  </Label>
+                  <Select value={userType} onValueChange={(v) => setUserType(v as any)}>
+                    <SelectTrigger id="userType" className="h-10 border-gray-300">
+                      <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="owner">Facility Owner</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="border-gray-300"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-gray-700">
-                  Phone
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="Enter your phone number"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="border-gray-300"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">
-                  Password
-                </Label>
-                <div className="relative">
+                {/* Name */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="fullName" className="text-gray-700 text-sm">
+                    Full Name
+                  </Label>
                   <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="border-gray-300"
+                    id="fullName"
+                    placeholder="Enter your full name"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    className="h-10 border-gray-300"
                     required
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="avatar" className="text-gray-700">
-                  Profile Picture
-                </Label>
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center border border-gray-300">
-                    <User className="h-8 w-8 text-gray-400" />
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-gray-700 text-sm">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="h-10 border-gray-300"
+                    required
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-gray-700 text-sm">
+                    Phone
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="h-10 border-gray-300"
+                    required
+                  />
+                </div>
+
+                {/* Password + toggle */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="text-gray-700 text-sm">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="h-10 border-gray-300 pr-10"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-10 w-10 hover:bg-transparent"
+                      onClick={() => setShowPassword((s) => !s)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+                    </Button>
                   </div>
-                  <Button type="button" variant="outline" size="sm" className="border-gray-300 bg-transparent">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Photo
-                  </Button>
                 </div>
-              </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox id="terms" required />
-                <Label htmlFor="terms" className="text-sm text-gray-600">
-                  I agree to the{" "}
-                  <Link href="/terms" className="text-gray-900 hover:text-gray-700">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" className="text-gray-900 hover:text-gray-700">
-                    Privacy Policy
-                  </Link>
-                </Label>
-              </div>
+                {/* Terms */}
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox id="terms" required />
+                  <Label htmlFor="terms" className="text-xs text-gray-600">
+                    I agree to the{" "}
+                    <Link href="/terms" className="font-medium text-gray-900 hover:text-gray-700">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="font-medium text-gray-900 hover:text-gray-700">
+                      Privacy Policy
+                    </Link>
+                  </Label>
+                </div>
 
-              {errorMsg && (
-                <p className="text-sm text-red-600" role="alert">{errorMsg}</p>
-              )}
-              <Button disabled={isSubmitting} type="submit" className="w-full bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-70">
-                {isSubmitting ? 'Creating Account...' : 'Create Account'}
-              </Button>
+                {/* Error */}
+                {errorMsg && (
+                  <p className="text-sm text-red-600" role="alert">
+                    {errorMsg}
+                  </p>
+                )}
 
-              <div className="text-center">
-                <span className="text-sm text-gray-600">
+                {/* Submit */}
+                <Button
+                  disabled={isSubmitting}
+                  type="submit"
+                  className="w-full bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-70"
+                >
+                  {isSubmitting ? "Creating Account..." : "Create Account"}
+                </Button>
+
+                {/* Link */}
+                <p className="text-center text-sm text-gray-600">
                   Already have an account?{" "}
-                  <Link href="/login" className="text-gray-900 hover:text-gray-700 font-medium">
+                  <Link href="/login" className="font-medium text-gray-900 hover:text-gray-700">
                     Sign in
                   </Link>
-                </span>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* OTP Verification Modal */}
-        <Dialog open={showOTPModal} onOpenChange={setShowOTPModal}>
-          <DialogContent className="sm:max-w-md border-gray-200">
-            <DialogHeader>
-              <DialogTitle className="text-gray-900">Verify Your Email</DialogTitle>
-              <DialogDescription className="text-gray-600">
-                We've sent a 6-digit verification code to your email address. Please enter it below.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="flex justify-center space-x-2">
-                {otp.map((digit, index) => (
-                  <Input
-                    key={index}
-                    id={`otp-${index}`}
-                    type="text"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOTPChange(index, e.target.value)}
-                    className="w-12 h-12 text-center text-lg font-semibold border-gray-300"
-                  />
-                ))}
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 border-gray-300 bg-transparent"
-                  onClick={() => setShowOTPModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button className="flex-1 bg-gray-900 hover:bg-gray-800" onClick={handleVerifyOTP}>
-                  Verify
-                </Button>
-              </div>
-              <div className="text-center">
-                <Button variant="link" className="text-sm text-gray-900">
-                  Resend Code
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+                </p>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* OTP Verification Modal (compact) */}
+      <Dialog open={showOTPModal} onOpenChange={setShowOTPModal}>
+        <DialogContent className="sm:max-w-md border-gray-200">
+          <DialogHeader>
+            <DialogTitle className="text-gray-900">Verify Your Email</DialogTitle>
+            <DialogDescription className="text-gray-600">
+              We sent a 6-digit code to your email. Enter it to continue.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex justify-center gap-2">
+              {otp.map((digit, index) => (
+                <Input
+                  key={index}
+                  id={`otp-${index}`}
+                  inputMode="numeric"
+                  type="text"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOTPChange(index, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                  className="h-10 w-10 text-center text-lg font-semibold border-gray-300"
+                />
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 border-gray-300 bg-transparent"
+                onClick={() => setShowOTPModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button className="flex-1 bg-gray-900 hover:bg-gray-800" onClick={handleVerifyOTP}>
+                Verify
+              </Button>
+            </div>
+
+            <div className="text-center">
+              <Button
+                variant="link"
+                className="text-sm text-gray-900"
+                onClick={() => {
+                  // TODO: call resend endpoint
+                }}
+              >
+                Resend Code
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
