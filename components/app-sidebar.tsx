@@ -26,7 +26,7 @@ interface UserData {
 const adminItems = [
   {
     title: "Dashboard",
-    url: "/",
+    url: "/dashboard",
     icon: LayoutDashboard,
   },
   {
@@ -155,7 +155,9 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
+      {" "}
+      {/* Add collapsible="icon" */}
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-4 py-2">
           <BarChart3 className="h-6 w-6 text-primary" />
