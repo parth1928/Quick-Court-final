@@ -29,14 +29,8 @@ export default function LoginPage() {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          step: 'verify_password' // Use direct login to bypass 2FA for existing UI
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
@@ -52,11 +46,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if this is a 2FA flow response
-      if (data.step === 'verify_otp') {
-        alert('2FA is required but not implemented in this UI. Please use the enhanced login page.');
-        return;
-      }
+  // No 2FA step now; direct login
 
       // Store user data locally (token is already set in HTTP-only cookie by API)
       if (data.user) {
@@ -97,7 +87,7 @@ export default function LoginPage() {
         {/* Left side: Photo */}
         <div className="hidden md:flex md:w-1/2 bg-gray-100 p-2">
           <img
-            src="/woman.jpg"
+            src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754908993~exp=1754912593~hmac=50369d3d421502b36127f15897d3a3cbfa5e32ad16b54a46046fb458e0a6b157&w=360%20360w"
             alt="Login illustration"
             className="object-cover object-center w-full h-full rounded-xl min-h-[400px] max-h-[600px]"
           />

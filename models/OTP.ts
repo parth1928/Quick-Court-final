@@ -5,6 +5,9 @@ export interface IOTP extends Document {
   otp: string;
   expiry: Date;
   attempts: number;
+  purpose: 'registration' | 'login' | 'password_reset';
+  ipAddress?: string;
+  userAgent?: string;
   createdAt: Date;
 }
 
@@ -29,6 +32,20 @@ const otpSchema = new Schema<IOTP>({
     default: 0,
     max: 3,
   },
+  purpose: {
+    type: String,
+    enum: ['registration', 'login', 'password_reset'],
+    default: 'registration',
+    required: true,
+  },
+  ipAddress: {
+    type: String,
+    default: null,
+  },
+  userAgent: {
+    type: String,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -36,8 +53,12 @@ const otpSchema = new Schema<IOTP>({
   },
 });
 
-// Compound index for efficient queries
-otpSchema.index({ email: 1, expiry: 1 });
+// Compound indexes for efficient queries
+otpSchema.index({ email: 1, purpose: 1, expiry: 1 });
+otpSchema.index({ email: 1, createdAt: -1 });
+
+// Remove the unique constraint temporarily to avoid issues with existing data
+// otpSchema.index({ email: 1, purpose: 1 }, { unique: true });
 
 // Note: OTP is stored as bcrypt hash (~60 chars), not plain text
 // Validation for 6-digit format happens in the generation utility before hashing

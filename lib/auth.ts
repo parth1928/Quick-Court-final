@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is not defined');
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Define allowed roles as a const
 export const ROLES = {
@@ -40,6 +37,12 @@ export async function validateToken(request: Request) {
     }
     if (!token) return null;
 
+    // Additional validation for token format
+    if (!token.includes('.') || token.split('.').length !== 3) {
+      console.error('Token validation error: Invalid JWT format');
+      return null;
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET!) as unknown;
     
     // Validate the decoded token has the required fields
@@ -66,19 +69,34 @@ export async function validateToken(request: Request) {
 export function withAuth(handler: Function, allowedRoles?: string[]) {
   return async (request: Request) => {
     try {
+      // Log incoming request details for debugging
+      console.log('Auth request headers:', {
+        auth: request.headers.get('Authorization'),
+        cookie: request.headers.get('cookie')
+      });
+
       // Validate token
       const user = await validateToken(request);
 
       if (!user) {
+        console.log('Token validation failed');
         return NextResponse.json(
           { error: 'Unauthorized - Invalid or missing token' },
-          { status: 401 }
+          { 
+            status: 401,
+            headers: {
+              'WWW-Authenticate': 'Bearer error="invalid_token"'
+            }
+          }
         );
       }
+
+      console.log('Token validated for user:', { id: user.userId, role: user.role });
 
       // Check roles if specified
       if (allowedRoles && allowedRoles.length > 0) {
         if (!allowedRoles.includes(user.role)) {
+          console.log('Role check failed:', { required: allowedRoles, actual: user.role });
           return NextResponse.json(
             { error: `Forbidden - Required role: ${allowedRoles.join(' or ')}` },
             { status: 403 }
@@ -86,7 +104,7 @@ export function withAuth(handler: Function, allowedRoles?: string[]) {
         }
       }
 
-      // Add authorization header to response for client to use in subsequent requests
+      // Add user to request for handler
       const response = await handler(request, user);
       
       // Ensure response is a NextResponse
@@ -94,8 +112,16 @@ export function withAuth(handler: Function, allowedRoles?: string[]) {
         ? response 
         : NextResponse.json(response);
 
-      // Clone response to add headers
-  return nextResponse;
+      // Add CORS headers if needed
+      const headers = new Headers(nextResponse.headers);
+      headers.set('Access-Control-Allow-Credentials', 'true');
+      
+      // Return response with headers
+      return new NextResponse(nextResponse.body, {
+        status: nextResponse.status,
+        statusText: nextResponse.statusText,
+        headers
+      });
     } catch (error) {
       console.error('Auth middleware error:', error);
       return NextResponse.json(

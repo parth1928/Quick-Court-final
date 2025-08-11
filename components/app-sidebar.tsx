@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart3, Building2, LayoutDashboard, Users, User, Home, Calendar, Clock, Trophy, Award, Shield, Gamepad2 } from "lucide-react"
+import { BarChart3, Building2, LayoutDashboard, Users, User, Home, Calendar, Clock, Trophy, Award, Shield, Gamepad2, Dices } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -84,6 +84,11 @@ const userItems = [
     title: "Venues",
     url: "/venues",
     icon: Building2,
+  },
+  {
+    title: "Games",
+    url: "/games",
+    icon: Dices,
   },
   {
     title: "Matches",

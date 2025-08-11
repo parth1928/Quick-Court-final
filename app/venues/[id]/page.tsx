@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, use as usePromise } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -36,7 +36,11 @@ interface ApiVenueDetail {
   reviews: ApiReview[]
 }
 
-export default function VenueDetailPage({ params }: { params: { id: string } }) {
+type ParamsInput = { id: string } | Promise<{ id: string }>
+
+export default function VenueDetailPage({ params }: { params: ParamsInput }) {
+  const resolved = (typeof (params as any)?.then === 'function') ? usePromise(params as Promise<{ id: string }>) : params as { id: string }
+  const id = resolved.id
   const [venue, setVenue] = useState<ApiVenueDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +50,7 @@ export default function VenueDetailPage({ params }: { params: { id: string } }) 
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch(`/api/venues/${params.id}`)
+        const res = await fetch(`/api/venues/${id}`)
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'Failed to load venue')
         setVenue(json)
@@ -56,8 +60,8 @@ export default function VenueDetailPage({ params }: { params: { id: string } }) 
         setLoading(false)
       }
     }
-    if (params.id) fetchVenue()
-  }, [params.id])
+    if (id) fetchVenue()
+  }, [id])
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading venue...</div>
   if (error || !venue) return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'Venue not found'}</div>

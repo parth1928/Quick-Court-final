@@ -91,10 +91,42 @@ export default function FacilityManagementPage() {
     setUploadedPhotos((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Facility data:", { ...formData, photos: uploadedPhotos })
-    // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/owner/facilities", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...formData,
+          photos: uploadedPhotos,
+          location: formData.location,
+          isActive: true
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        // Reset form
+        setFormData({
+          name: "",
+          location: "",
+          description: "",
+          sports: [],
+          amenities: []
+        });
+        setUploadedPhotos([]);
+        router.push("/facility-dashboard");
+      } else {
+        console.error("Error creating facility:", data.error);
+      }
+    } catch (error) {
+      console.error("Error creating facility:", error);
+    }
   }
 
   if (!userData) {

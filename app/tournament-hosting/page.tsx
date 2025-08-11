@@ -104,12 +104,102 @@ const mockHostedTournaments: HostedTournament[] = [
 
 export default function TournamentHostingPage() {
   const [userData, setUserData] = useState<any>(null)
-  const [tournaments, setTournaments] = useState<HostedTournament[]>(mockHostedTournaments)
+  const [tournaments, setTournaments] = useState<HostedTournament[]>([])
+  const [loading, setLoading] = useState(true)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [selectedTournament, setSelectedTournament] = useState<HostedTournament | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+
+  const fetchTournaments = async () => {
+    try {
+      const userId = userData?.userId || userData?._id
+      console.log('Fetching tournaments for userId:', userId, 'userData:', userData) // Debug log
+      
+      // Test fetch to debug the issue
+      const testResponse = await fetch('/api/tournaments/test-fetch', {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      })
+      
+      if (testResponse.ok) {
+        const testData = await testResponse.json()
+        console.log('Test fetch result:', testData)
+      }
+      
+      let response;
+      
+      // Try to fetch tournaments for the specific user first
+      if (userId) {
+        response = await fetch(`/api/tournaments?createdBy=${userId}&status=all`, {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        })
+      } else {
+        // Fallback: fetch all tournaments with status filter
+        response = await fetch('/api/tournaments?status=all', {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        })
+      }
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('API Response:', data) // Debug log
+        
+        let filteredTournaments = data.tournaments || []
+        
+        // If we fetched all tournaments but have a userId, filter client-side
+        if (!userId || filteredTournaments.length === 0) {
+          console.log('Using all tournaments or no userId filter')
+        } else {
+          // Client-side filtering as backup
+          filteredTournaments = filteredTournaments.filter((t: any) => 
+            t.createdBy === userId || t.createdBy?._id === userId
+          )
+          console.log(`Filtered to ${filteredTournaments.length} tournaments for user ${userId}`)
+        }
+        
+        // Convert API tournaments to match HostedTournament interface
+        const apiTournaments = filteredTournaments.map((t: any) => ({
+          id: t._id,
+          name: t.name,
+          sport: t.sport,
+          category: t.category || 'General',
+          description: t.description,
+          startDate: t.startDate,
+          endDate: t.endDate,
+          registrationDeadline: t.registrationDeadline,
+          maxParticipants: t.maxParticipants,
+          currentParticipants: t.participants?.length || 0,
+          entryFee: t.entryFee,
+          prizePool: t.prizePool,
+          status: t.status,
+          difficulty: t.difficulty,
+          courts: ["Court A", "Court B"], // Default for now
+          amenities: ["Parking", "Locker Rooms"], // Default for now
+          rules: t.rules || [],
+          contactEmail: t.organizerContact || userData?.email || "contact@facility.com",
+          contactPhone: "+91 12345 67890",
+          createdDate: t.createdAt || new Date().toISOString(),
+          revenue: t.entryFee * (t.participants?.length || 0)
+        })) || []
+        
+        console.log('Processed tournaments:', apiTournaments) // Debug log
+        setTournaments(apiTournaments)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Failed to fetch tournaments:', response.status, response.statusText, errorData)
+        setTournaments([])
+      }
+    } catch (error) {
+      console.error('Error fetching tournaments:', error)
+      setTournaments([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     const user = localStorage.getItem("user")
@@ -126,6 +216,13 @@ export default function TournamentHostingPage() {
 
     setUserData(parsedUser)
   }, [router])
+  
+  // Separate useEffect for fetching tournaments after userData is set
+  useEffect(() => {
+    if (userData) {
+      fetchTournaments()
+    }
+  }, [userData])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -140,12 +237,19 @@ export default function TournamentHostingPage() {
   }
 
   const activeTournaments = tournaments.filter(t => t.status === "open" || t.status === "ongoing")
-  const draftTournaments = tournaments.filter(t => t.status === "draft" || t.status === "submitted")
+  const draftTournaments = tournaments.filter(t => t.status === "draft" || t.status === "submitted" || t.status === "approved")
   const completedTournaments = tournaments.filter(t => t.status === "completed")
   const totalRevenue = tournaments.reduce((sum, t) => sum + (t.revenue || 0), 0)
 
-  if (!userData) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  if (!userData || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading tournaments...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -251,11 +355,14 @@ export default function TournamentHostingPage() {
       <CreateTournamentDialog 
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
+        toast={toast}
+        userData={userData}
         onSuccess={(newTournament) => {
-          setTournaments(prev => [...prev, { ...newTournament, id: Date.now() }])
+          // Refresh tournaments from database
+          fetchTournaments()
           toast({
             title: "Tournament Created",
-            description: "Your tournament has been created and submitted for approval."
+            description: "Your tournament is now live and users can register for it!"
           })
         }}
       />
@@ -367,10 +474,12 @@ function TournamentGrid({ tournaments, getStatusColor, onEdit }: {
   )
 }
 
-function CreateTournamentDialog({ open, onOpenChange, onSuccess }: {
+function CreateTournamentDialog({ open, onOpenChange, onSuccess, toast, userData }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: (tournament: Omit<HostedTournament, 'id'>) => void
+  toast: any
+  userData: any
 }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -392,23 +501,96 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess }: {
   const [entryFeeRange, setEntryFeeRange] = useState([2500])
   const [prizePoolRange, setPrizePoolRange] = useState([50000])
 
-  const handleSubmit = () => {
-    const newTournament: Omit<HostedTournament, 'id'> = {
-      ...formData,
-      maxParticipants: parseInt(formData.maxParticipants),
-      entryFee: entryFeeRange[0],
-      prizePool: prizePoolRange[0],
-      currentParticipants: 0,
-      status: "draft",
-      courts: ["Court A", "Court B"],
-      amenities: ["Parking", "Locker Rooms"],
-      rules: formData.rules.filter(rule => rule.trim()),
-      createdDate: new Date().toISOString(),
-      difficulty: formData.difficulty as any
+  const handleSubmit = async () => {
+    try {
+      // No need to manually handle token - it's in HTTP-only cookie
+      const tournamentData = {
+        name: formData.name,
+        sport: formData.sport,
+        category: formData.category,
+        description: formData.description,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        registrationDeadline: formData.registrationDeadline,
+        maxParticipants: parseInt(formData.maxParticipants),
+        entryFee: entryFeeRange[0],
+        prizePool: prizePoolRange[0],
+        difficulty: formData.difficulty,
+        rules: formData.rules.filter(rule => rule.trim()),
+        venue: userData?.businessName || "Your Facility", // Get from user data
+        location: userData?.address || "Facility Location", // Get from user data
+        organizer: userData?.name || "Facility Owner",
+        organizerContact: formData.contactEmail,
+        status: "open" // Make tournaments visible to users immediately
+      }
+
+      const response = await fetch('/api/tournaments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include', // Important: include cookies
+        body: JSON.stringify(tournamentData)
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create tournament')
+      }
+
+      const result = await response.json()
+      
+      // Create the tournament object for local state update
+      const newTournament: Omit<HostedTournament, 'id'> = {
+        ...formData,
+        maxParticipants: parseInt(formData.maxParticipants),
+        entryFee: entryFeeRange[0],
+        prizePool: prizePoolRange[0],
+        currentParticipants: 0,
+        status: "open", // Make tournaments visible to users immediately
+        courts: ["Court A", "Court B"],
+        amenities: ["Parking", "Locker Rooms"],
+        rules: formData.rules.filter(rule => rule.trim()),
+        createdDate: new Date().toISOString(),
+        difficulty: formData.difficulty as any
+      }
+      
+      onSuccess(newTournament)
+      onOpenChange(false)
+      
+      // Show success message
+      toast({
+        title: "Tournament Created!",
+        description: "Your tournament has been saved to the database.",
+      })
+      
+      // Reset form
+      setFormData({
+        name: "",
+        sport: "",
+        category: "",
+        description: "",
+        startDate: "",
+        endDate: "",
+        registrationDeadline: "",
+        maxParticipants: "",
+        entryFee: "",
+        prizePool: "",
+        difficulty: "",
+        contactEmail: "",
+        contactPhone: "",
+        rules: [""]
+      })
+      setEntryFeeRange([2500])
+      setPrizePoolRange([50000])
+    } catch (error: any) {
+      console.error('Error creating tournament:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create tournament",
+        variant: "destructive"
+      })
     }
-    
-    onSuccess(newTournament)
-    onOpenChange(false)
     
     // Reset form
     setFormData({

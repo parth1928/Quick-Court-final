@@ -4,11 +4,12 @@ const courtSchema = new mongoose.Schema({
   venue: { type: mongoose.Schema.Types.ObjectId, ref: 'Venue', required: true },
   venueId: { type: mongoose.Schema.Types.ObjectId, ref: 'Venue' }, // spec alias
   name: { type: String, required: true },
-  sport: { type: mongoose.Schema.Types.ObjectId, ref: 'Sport', required: true }, // existing
-  sportType: { type: String }, // spec field (e.g., "Badminton")
+  sport: { type: mongoose.Schema.Types.ObjectId, ref: 'Sport' }, // Make optional - not required
+  sportType: { type: String, required: true }, // Make this required instead - direct sport name
   description: { type: String },
   surfaceType: { type: String, required: true },
   indoor: { type: Boolean, default: false },
+  capacity: { type: Number, default: 2 },
   pricing: {
     hourlyRate: { type: Number, required: true },
     currency: { type: String, default: 'INR' },
@@ -34,6 +35,10 @@ const courtSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   status: { type: String, enum: ['active', 'maintenance', 'inactive'], default: 'active' },
+  maintenanceNotes: { type: String },
+  bookingDurationMinutes: { type: Number, default: 60 },
+  allowDynamicPricing: { type: Boolean, default: false },
+  equipmentIncluded: [{ type: String }],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

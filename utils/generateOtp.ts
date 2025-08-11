@@ -55,3 +55,24 @@ export const createOTPExpiry = (): Date => {
 export const isOTPExpired = (expiry: Date): boolean => {
   return new Date() > expiry;
 };
+
+/**
+ * Validates OTP format
+ * @param otp - The OTP to validate
+ * @returns Boolean indicating if OTP format is valid
+ */
+export const validateOTPFormat = (otp: string): boolean => {
+  return /^\d{6}$/.test(otp);
+};
+
+/**
+ * Secure OTP generation with enhanced entropy
+ * @returns A cryptographically secure 6-digit OTP
+ */
+export const generateSecureOTP = (): string => {
+  let otp = '';
+  for (let i = 0; i < 6; i++) {
+    otp += crypto.randomInt(0, 10).toString();
+  }
+  return otp;
+};

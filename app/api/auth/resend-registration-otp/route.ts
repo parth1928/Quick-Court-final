@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import OTP from '@/models/OTP';
-import { generateOTP, hashOTP, createOTPExpiry } from '@/utils/generateOtp';
+import { generateOTP, hashOTP, createOTPExpiry, validateOTPFormat } from '@/utils/generateOtp';
 import { sendOTPEmail } from '@/utils/sendEmail';
 import { checkOTPRateLimit } from '@/utils/rateLimiting';
+
+// Helper function to get client IP
+function getClientIP(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIP = request.headers.get('x-real-ip');
+  
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  
+  if (realIP) {
+    return realIP;
+  }
+  
+  return 'unknown';
+}
 
 export async function POST(req: Request) {
   try {
@@ -12,42 +28,57 @@ export async function POST(req: Request) {
     const { email } = await req.json();
 
     if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'Email is required',
+        code: 'MISSING_EMAIL'
+      }, { status: 400 });
     }
 
     const normalizedEmail = email.toLowerCase();
+    const clientIP = getClientIP(req);
+    const userAgent = req.headers.get('user-agent') || 'unknown';
 
-    // Check rate limiting
-    const rateLimitStatus = await checkOTPRateLimit(normalizedEmail);
+    // Enhanced rate limiting with IP tracking
+    const rateLimitStatus = await checkOTPRateLimit(normalizedEmail, clientIP);
     if (!rateLimitStatus.allowed) {
-      return NextResponse.json(
-        { 
-          error: rateLimitStatus.message,
-          rateLimitInfo: {
-            remainingAttempts: rateLimitStatus.remainingAttempts,
-            nextAttemptIn: rateLimitStatus.nextAttemptIn,
-          }
-        },
-        { status: 429 }
-      );
+      return NextResponse.json({
+        error: rateLimitStatus.message,
+        code: 'RATE_LIMITED',
+        rateLimitInfo: {
+          remainingAttempts: rateLimitStatus.remainingAttempts,
+          nextAttemptIn: rateLimitStatus.nextAttemptIn,
+        }
+      }, { status: 429 });
     }
 
-    // Delete any existing OTPs for this email
-    await OTP.deleteMany({ email: normalizedEmail });
+    // Delete any existing OTPs for this email and purpose
+    await OTP.deleteMany({ 
+      email: normalizedEmail, 
+      purpose: 'registration' 
+    });
 
     // Generate new OTP
     const otp = generateOTP();
     const hashedOtp = await hashOTP(otp);
     const expiry = createOTPExpiry();
 
-    console.log(`Resent OTP for ${normalizedEmail}: ${otp}`); // For debugging
+    // For development only
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔁 Resent OTP for ${normalizedEmail}: ${otp}`);
+    }
 
-    // Save OTP to database
+    // Save OTP to database with enhanced tracking
     const otpRecord = new OTP({
       email: normalizedEmail,
       otp: hashedOtp,
       expiry,
       attempts: 0,
+      purpose: 'registration',
+      ipAddress: clientIP,
+      userAgent,
+    });
+
+    await otpRecord.save();
     });
     await otpRecord.save();
 

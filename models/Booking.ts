@@ -5,6 +5,7 @@ const bookingSchema = new mongoose.Schema({
   courtId: { type: mongoose.Schema.Types.ObjectId, ref: 'Court' }, // spec alias
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // spec alias
+  venue: { type: mongoose.Schema.Types.ObjectId, ref: 'Venue' }, // denormalized for owner queries
   startTime: { type: Date, required: true }, // existing naming
   endTime: { type: Date, required: true },
   startTs: { type: Date }, // spec naming
@@ -19,6 +20,13 @@ const bookingSchema = new mongoose.Schema({
   },
   paymentStatus: { type: String, enum: ['pending', 'paid', 'refunded'], default: 'pending' },
   paymentId: { type: String },
+  ownerEarning: { type: Number },
+  platformFee: { type: Number },
+  cancellationReason: { type: String },
+  cancelledAt: { type: Date },
+  refundAmount: { type: Number },
+  checkInAt: { type: Date },
+  checkOutAt: { type: Date },
   notes: { type: String },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -35,6 +43,13 @@ bookingSchema.pre('save', async function(next) {
   // sync alias fields
   if (!this.courtId && this.court) this.courtId = this.court;
   if (!this.userId && this.user) this.userId = this.user;
+  if (!this.venue && this.court) {
+    try {
+      const Court = mongoose.model('Court');
+      const courtDoc: any = await Court.findById(this.court).select('venue');
+      if (courtDoc?.venue) this.venue = courtDoc.venue;
+    } catch (e) { /* ignore */ }
+  }
   if (this.startTs && !this.startTime) this.startTime = this.startTs;
   if (this.endTs && !this.endTime) this.endTime = this.endTs;
   if (this.startTime && !this.startTs) this.startTs = this.startTime;

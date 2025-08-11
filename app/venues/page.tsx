@@ -36,6 +36,17 @@ export default function VenuesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Check for sport parameter in URL on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const sportParam = urlParams.get('sport')
+      if (sportParam) {
+        setSelectedSport(sportParam.toLowerCase())
+      }
+    }
+  }, [])
+
   const fetchVenues = async () => {
     setLoading(true)
     try {
@@ -64,7 +75,9 @@ export default function VenuesPage() {
   const filteredVenues = venues.filter((venue) => {
     const matchesSearch =
       venue.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      venue.location.toLowerCase().includes(searchTerm.toLowerCase())
+      venue.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venue.sports.some((sport) => sport.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesSport =
       selectedSport === "all" || venue.sports.some((sport) => sport.toLowerCase() === selectedSport.toLowerCase())
     const matchesPrice = venue.price >= priceRange[0] && venue.price <= priceRange[1]
@@ -133,6 +146,14 @@ export default function VenuesPage() {
                   <SelectItem value="tennis">Tennis</SelectItem>
                   <SelectItem value="volleyball">Volleyball</SelectItem>
                   <SelectItem value="badminton">Badminton</SelectItem>
+                  <SelectItem value="football">Football</SelectItem>
+                  <SelectItem value="cricket">Cricket</SelectItem>
+                  <SelectItem value="swimming">Swimming</SelectItem>
+                  <SelectItem value="table tennis">Table Tennis</SelectItem>
+                  <SelectItem value="squash">Squash</SelectItem>
+                  <SelectItem value="hockey">Hockey</SelectItem>
+                  <SelectItem value="boxing">Boxing</SelectItem>
+                  <SelectItem value="yoga">Yoga</SelectItem>
                 </SelectContent>
               </Select>
             </div>

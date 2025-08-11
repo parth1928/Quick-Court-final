@@ -6,7 +6,8 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Star, Clock, Gamepad2, Users, Trophy, Plus } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { MapPin, Star, Clock, Gamepad2, Users, Trophy, Plus, Filter } from "lucide-react"
 
 interface PopularVenue {
   id: string
@@ -18,10 +19,12 @@ interface PopularVenue {
   image: string
 }
 
-export default function UserHomePage() {
+function UserHomePage() {
   const router = useRouter()
   const [userData, setUserData] = useState<any>(null)
   const [popularVenues, setPopularVenues] = useState<PopularVenue[]>([])
+  const [filteredVenues, setFilteredVenues] = useState<PopularVenue[]>([])
+  const [selectedSport, setSelectedSport] = useState<string>("all")
   const [loadingVenues, setLoadingVenues] = useState<boolean>(true)
   const [venueError, setVenueError] = useState<string | null>(null)
 
@@ -51,7 +54,7 @@ export default function UserHomePage() {
       setLoadingVenues(true)
       setVenueError(null)
       try {
-        const params = new URLSearchParams({ view: 'card', limit: '3' })
+        const params = new URLSearchParams({ view: 'card', limit: '6' })
         const res = await fetch(`/api/venues?${params.toString()}`)
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load venues')
@@ -66,6 +69,7 @@ export default function UserHomePage() {
             image: v.image || '/placeholder.jpg'
           }))
           setPopularVenues(mapped)
+          setFilteredVenues(mapped)
         } else {
           setVenueError('No venues found')
         }
@@ -78,6 +82,20 @@ export default function UserHomePage() {
     }
     fetchPopularVenues()
   }, [])
+
+  // Filter venues when sport selection changes
+  useEffect(() => {
+    if (selectedSport === "all") {
+      setFilteredVenues(popularVenues)
+    } else {
+      const filtered = popularVenues.filter(venue => 
+        venue.sports.some(sport => 
+          sport.toLowerCase() === selectedSport.toLowerCase()
+        )
+      )
+      setFilteredVenues(filtered)
+    }
+  }, [selectedSport, popularVenues])
 
   if (!userData) {
     return (
@@ -100,15 +118,16 @@ export default function UserHomePage() {
             Discover amazing sports venues near you and book your next game instantly.
           </p>
           <div className="flex flex-wrap gap-4">
-            <Button size="lg" variant="secondary">
-              Book Now
+            <Button asChild size="lg" variant="secondary">
+              <Link href="/games">Book Now</Link>
             </Button>
             <Button
+              asChild
               size="lg"
               variant="outline"
               className="text-white border-white hover:bg-white hover:text-gray-900 bg-transparent"
             >
-              Browse Venues
+              <Link href="/venues">Browse Venues</Link>
             </Button>
           </div>
         </div>
@@ -204,16 +223,57 @@ export default function UserHomePage() {
 
       {/* Popular Venues */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Popular Venues</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+          <h2 className="text-2xl font-bold text-gray-900">Popular Venues</h2>
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <Select value={selectedSport} onValueChange={setSelectedSport}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by Games" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Games</SelectItem>
+                <SelectItem value="basketball">Basketball</SelectItem>
+                <SelectItem value="tennis">Tennis</SelectItem>
+                <SelectItem value="volleyball">Volleyball</SelectItem>
+                <SelectItem value="badminton">Badminton</SelectItem>
+                <SelectItem value="football">Football</SelectItem>
+                <SelectItem value="cricket">Cricket</SelectItem>
+                <SelectItem value="swimming">Swimming</SelectItem>
+                <SelectItem value="table tennis">Table Tennis</SelectItem>
+                <SelectItem value="squash">Squash</SelectItem>
+                <SelectItem value="hockey">Hockey</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         {venueError && <p className="text-sm text-red-600 mb-4">{venueError}</p>}
-        <div className="grid md:grid-cols-3 gap-6">
+        
+        {/* Results count */}
+        {!loadingVenues && (
+          <div className="mb-4">
+            <p className="text-sm text-gray-600">
+              {selectedSport === "all" 
+                ? `Showing ${filteredVenues.length} venues` 
+                : `Showing ${filteredVenues.length} venues for ${selectedSport}`
+              }
+            </p>
+          </div>
+        )}
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loadingVenues && popularVenues.length === 0 && (
-            <div className="col-span-3 text-gray-500 text-sm">Loading venues...</div>
+            <div className="col-span-full text-gray-500 text-sm">Loading venues...</div>
           )}
-          {!loadingVenues && popularVenues.length === 0 && !venueError && (
-            <div className="col-span-3 text-gray-500 text-sm">No venues available.</div>
+          {!loadingVenues && filteredVenues.length === 0 && !venueError && (
+            <div className="col-span-full text-gray-500 text-sm">
+              {selectedSport === "all" 
+                ? "No venues available." 
+                : `No venues found for ${selectedSport}.`
+              }
+            </div>
           )}
-          {popularVenues.map((venue) => (
+          {filteredVenues.map((venue) => (
             <Card
               key={venue.id}
               className="overflow-hidden border-gray-200 hover:shadow-lg transition-shadow cursor-pointer"
@@ -290,3 +350,5 @@ export default function UserHomePage() {
     </div>
   )
 }
+
+export default UserHomePage

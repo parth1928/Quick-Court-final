@@ -8,69 +8,27 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Building2, Calendar, DollarSign, TrendingUp, Activity } from "lucide-react"
 
-const kpiData = [
-  {
-    title: "Total Bookings",
-    value: "156",
-    icon: Calendar,
-    change: "+23% from last month",
-    changeType: "positive" as const,
-  },
-  {
-    title: "Active Courts",
-    value: "8",
-    icon: Building2,
-    change: "2 courts under maintenance",
-    changeType: "neutral" as const,
-  },
-  {
-    title: "Earnings (simulated)",
-  value: formatInr(425000),
-    icon: DollarSign,
-    change: "+18% from last month",
-    changeType: "positive" as const,
-  },
-  {
-    title: "Booking Calendar",
-    value: "85%",
-    icon: Activity,
-    change: "Occupancy rate this week",
-    changeType: "positive" as const,
-  },
-]
+interface Booking {
+  id: string
+  facility: string
+  court: string
+  user: string
+  date: string
+  time: string
+  status: string
+  amount: number
+}
 
-const recentBookings = [
-  {
-    id: 1,
-    facility: "Elite Sports Arena",
-    court: "Basketball Court A",
-    user: "Rahul Sharma",
-    date: "2024-01-25",
-    time: "4:00 PM - 5:00 PM",
-    status: "Confirmed",
-    amount: 700,
-  },
-  {
-    id: 2,
-    facility: "Elite Sports Arena",
-    court: "Tennis Court 1",
-    user: "Ananya Singh",
-    date: "2024-01-24",
-    time: "2:00 PM - 3:00 PM",
-    status: "Completed",
-    amount: 850,
-  },
-  {
-    id: 3,
-    facility: "Community Sports Centre",
-    court: "Volleyball Court",
-    user: "Vikram Patel",
-    date: "2024-01-23",
-    time: "6:00 PM - 7:00 PM",
-    status: "Completed",
-    amount: 600,
-  },
-]
+interface DashboardData {
+  totalBookings: number
+  monthlyBookings: number
+  activeCourts: number
+  maintenanceCourts: number
+  totalEarnings: number
+  monthlyEarnings: number
+  recentBookings: Booking[]
+  error?: string
+}
 
 function ChartPlaceholder({ title, description, type }: { title: string; description: string; type: string }) {
   return (
@@ -92,8 +50,76 @@ function ChartPlaceholder({ title, description, type }: { title: string; descrip
 }
 
 export default function FacilityDashboard() {
-  const [userData, setUserData] = useState<any>(null)
   const router = useRouter()
+  const [userData, setUserData] = useState<any>(null)
+  const [dashboardData, setDashboardData] = useState<DashboardData>({
+    totalBookings: 0,
+    monthlyBookings: 0,
+    activeCourts: 0,
+    maintenanceCourts: 0,
+    totalEarnings: 0,
+    monthlyEarnings: 0,
+    recentBookings: []
+  })
+
+  // Fetch dashboard data
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        // Get user data first
+        const userStr = localStorage.getItem("user");
+        const tokenStr = localStorage.getItem("token");
+
+        if (!userStr || !tokenStr) {
+          console.error("No user data or token found");
+          router.push("/login");
+          return;
+        }
+
+        const user = JSON.parse(userStr);
+        
+        if (user.role !== "owner") {
+          console.error("Unauthorized - User is not an owner");
+          router.push("/login");
+          return;
+        }
+
+        const response = await fetch("/api/owner/dashboard", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${tokenStr}`,
+            "Content-Type": "application/json",
+          }
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          if (response.status === 401) {
+            console.error("Session expired or invalid");
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            router.push("/login");
+            return;
+          }
+          throw new Error(data.error || "Failed to fetch dashboard data");
+        }
+
+        const data = await response.json();
+        setDashboardData(data);
+      } catch (error: any) {
+        console.error("Error fetching dashboard data:", error.message);
+        // Show error in UI instead of just console
+        setDashboardData(prev => ({
+          ...prev,
+          error: error.message || "Failed to load dashboard data"
+        }));
+      }
+    }
+
+    if (userData?.role === "owner") {
+      fetchDashboardData();
+    }
+  }, [userData, router])
 
   useEffect(() => {
     const user = localStorage.getItem("user")
@@ -103,13 +129,67 @@ export default function FacilityDashboard() {
     }
 
     const parsedUser = JSON.parse(user)
-  if (parsedUser.role !== "owner") {
+    if (parsedUser.role !== "owner") {
       router.push("/login")
       return
     }
 
     setUserData(parsedUser)
   }, [router])
+
+  const kpiData = [
+    {
+      title: "Total Bookings",
+      value: dashboardData.totalBookings.toString(),
+      icon: Calendar,
+      change: `${dashboardData.monthlyBookings} this month`,
+      changeType: "positive" as const,
+    },
+    {
+      title: "Active Courts",
+      value: dashboardData.activeCourts.toString(),
+      icon: Building2,
+      change: `${dashboardData.maintenanceCourts} courts under maintenance`,
+      changeType: "neutral" as const,
+    },
+    {
+      title: "Total Earnings",
+      value: formatInr(dashboardData.totalEarnings),
+      icon: DollarSign,
+      change: `${formatInr(dashboardData.monthlyEarnings)} this month`,
+      changeType: "positive" as const,
+    },
+    {
+      title: "Monthly Earnings",
+      value: formatInr(dashboardData.monthlyEarnings),
+      icon: Activity,
+      change: "Current month revenue",
+      changeType: "positive" as const,
+    },
+  ]
+
+  if (dashboardData.error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong className="font-bold">Error! </strong>
+            <span className="block sm:inline">{dashboardData.error}</span>
+          </div>
+          <Button 
+            onClick={() => {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              router.push('/login');
+            }}
+            className="bg-gray-900 hover:bg-gray-800 text-white"
+          >
+            Return to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!userData) {
     return (
@@ -155,7 +235,11 @@ export default function FacilityDashboard() {
           description="Line chart showing booking patterns over time"
           type="line"
         />
-        <ChartPlaceholder title="Earnings Summary" description="Bar chart displaying revenue breakdown" type="bar" />
+        <ChartPlaceholder 
+          title="Earnings Summary" 
+          description="Bar chart displaying revenue breakdown" 
+          type="bar" 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -172,7 +256,7 @@ export default function FacilityDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentBookings.slice(0, 4).map((booking) => (
+              {dashboardData.recentBookings?.slice(0, 4).map((booking: Booking) => (
                 <div
                   key={booking.id}
                   className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
@@ -186,19 +270,22 @@ export default function FacilityDashboard() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge
-                      variant={booking.status === "Confirmed" ? "default" : "secondary"}
+                      variant={booking.status === "confirmed" ? "default" : "secondary"}
                       className={
-                        booking.status === "Confirmed"
+                        booking.status === "confirmed"
                           ? "bg-gray-900 text-white text-xs"
                           : "bg-gray-100 text-gray-700 text-xs"
                       }
                     >
-                      {booking.status}
+                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </Badge>
                     <span className="font-semibold text-gray-900 text-sm">{formatInr(booking.amount)}</span>
                   </div>
                 </div>
               ))}
+              {!dashboardData.recentBookings?.length && (
+                <div className="text-center py-4 text-gray-500">No recent bookings found</div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -211,14 +298,31 @@ export default function FacilityDashboard() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
-            <Button className="bg-gray-900 hover:bg-gray-800 text-white">Add New Facility</Button>
-            <Button variant="outline" className="border-gray-300 text-gray-700 bg-transparent">
+            <Button
+              onClick={() => router.push("/my-facilities")}
+              className="bg-gray-900 hover:bg-gray-800 text-white"
+            >
+              My Facilities
+            </Button>
+            <Button
+              onClick={() => router.push("/court-management")}
+              variant="outline"
+              className="border-gray-300 text-gray-700 bg-transparent"
+            >
               Manage Courts
             </Button>
-            <Button variant="outline" className="border-gray-300 text-gray-700 bg-transparent">
-              View All Bookings
+            <Button
+              onClick={() => router.push("/facility-bookings")}
+              variant="outline"
+              className="border-gray-300 text-gray-700 bg-transparent"
+            >
+              View Bookings
             </Button>
-            <Button variant="outline" className="border-gray-300 text-gray-700 bg-transparent">
+            <Button
+              onClick={() => router.push("/time-slot-management")}
+              variant="outline"
+              className="border-gray-300 text-gray-700 bg-transparent"
+            >
               Set Availability
             </Button>
           </div>

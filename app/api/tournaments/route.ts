@@ -3,18 +3,64 @@ import dbConnect from '@/lib/db/connect';
 import Tournament from '@/models/Tournament';
 import { withAuth } from '@/lib/auth';
 
-// GET /api/tournaments - list
-export const GET = withAuth(async (req: Request) => {
-  await dbConnect();
-  const { searchParams } = new URL(req.url);
-  const status = searchParams.get('status');
-  const createdBy = searchParams.get('createdBy');
-  const query: any = {};
-  if (status) query.status = status;
-  if (createdBy) query.createdBy = createdBy;
-  const tournaments = await Tournament.find(query).sort({ createdAt: -1 }).lean();
-  return NextResponse.json({ tournaments });
-}, []);
+// GET /api/tournaments - list (public access for browsing)
+export async function GET(req: Request) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status');
+    const createdBy = searchParams.get('createdBy');
+    
+    console.log('API Request params:', { status, createdBy });
+    
+    const query: any = {};
+    
+    // Handle status filtering
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    
+    // Handle createdBy filtering with ObjectId validation
+    if (createdBy) {
+      // Check if createdBy is a valid ObjectId format
+      if (/^[0-9a-fA-F]{24}$/.test(createdBy)) {
+        query.createdBy = createdBy;
+      } else {
+        console.log('Invalid ObjectId format for createdBy:', createdBy);
+        return NextResponse.json({ 
+          tournaments: [],
+          total: 0,
+          message: 'Invalid user ID format'
+        });
+      }
+    }
+    
+    // Show tournaments that are available for registration or ongoing
+    if (!status && !createdBy) {
+      query.status = { $in: ['draft', 'open', 'approved', 'ongoing'] };
+    }
+    
+    console.log('Fetching tournaments with query:', query);
+    
+    const tournaments = await Tournament.find(query)
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    console.log(`Found ${tournaments.length} tournaments`);
+    
+    return NextResponse.json({ 
+      tournaments,
+      total: tournaments.length 
+    });
+  } catch (error: any) {
+    console.error('Error in GET /api/tournaments:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch tournaments', details: error.message, stack: error.stack },
+      { status: 500 }
+    );
+  }
+}
 
 // POST /api/tournaments - create
 export const POST = withAuth(async (req: Request, user: any) => {
@@ -39,7 +85,7 @@ export const POST = withAuth(async (req: Request, user: any) => {
     maxParticipants: body.maxParticipants,
     entryFee: body.entryFee || 0,
     prizePool: body.prizePool || 0,
-    status: 'draft',
+    status: 'open', // Make tournaments visible to users immediately
     difficulty: body.difficulty || 'Beginner',
     description: body.description || '',
     organizer: body.organizer || '',

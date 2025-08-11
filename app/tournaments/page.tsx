@@ -14,7 +14,7 @@ import PaySimulator from "@/components/pay-simulator"
 import { toast } from "@/components/ui/use-toast"
 
 interface Tournament {
-  id: number
+  _id: string
   name: string
   sport: string
   category: string
@@ -27,124 +27,27 @@ interface Tournament {
   currentParticipants: number
   entryFee: number
   prizePool: number
-  status: "open" | "closed" | "ongoing" | "completed"
+  status: "draft" | "submitted" | "approved" | "open" | "closed" | "ongoing" | "completed" | "cancelled"
   difficulty: "Beginner" | "Intermediate" | "Advanced" | "Professional"
-  image: string
   description: string
   organizer: string
+  participants: Array<{
+    _id: string
+    user: string
+    name: string
+    registrationDate: string
+  }>
   rules?: string[]
+  hasJoined?: boolean
 }
-
-const mockTournaments: Tournament[] = [
-  {
-    id: 1,
-    name: "Mumbai Basketball Premier League",
-    sport: "Basketball",
-    category: "5v5",
-    venue: "NSCI Indoor Stadium",
-    location: "Mumbai",
-    startDate: "2024-09-10",
-    endDate: "2024-09-20",
-    registrationDeadline: "2024-09-01",
-    maxParticipants: 12,
-    currentParticipants: 8,
-    entryFee: 5000,
-    prizePool: 100000,
-    status: "open",
-    difficulty: "Professional",
-    image: "/placeholder.svg?height=200&width=300&text=Basketball+Tournament",
-    description: "Participate in Mumbai's biggest basketball league. Open to all professional and semi-professional teams.",
-    organizer: "Mumbai Basketball Association",
-    rules: [
-      "Teams must have 5 players + 3 substitutes",
-      "All players must be 16+ years old",
-      "Standard FIBA rules apply",
-      "Entry fee includes GST and court charges"
-    ]
-  },
-  {
-    id: 2,
-    name: "Chennai Tennis Challenge",
-    sport: "Tennis",
-    category: "Singles",
-    venue: "SDAT Tennis Stadium",
-    location: "Chennai",
-    startDate: "2024-10-05",
-    endDate: "2024-10-10",
-    registrationDeadline: "2024-09-25",
-    maxParticipants: 32,
-    currentParticipants: 20,
-    entryFee: 3000,
-    prizePool: 50000,
-    status: "open",
-    difficulty: "Intermediate",
-    image: "/placeholder.svg?height=200&width=300&text=Tennis+Tournament",
-    description: "Show your skills at the Chennai Tennis Challenge. Open for all state-level players.",
-    organizer: "Tamil Nadu Tennis Association",
-    rules: [
-      "Single players only",
-      "All players must be 15+ years old",
-      "Standard ITF rules apply",
-      "Entry fee includes GST"
-    ]
-  },
-  {
-    id: 3,
-    name: "Hyderabad Badminton Open",
-    sport: "Badminton",
-    category: "Singles",
-    venue: "Gachibowli Indoor Stadium",
-    location: "Hyderabad",
-    startDate: "2024-11-01",
-    endDate: "2024-11-03",
-    registrationDeadline: "2024-10-20",
-    maxParticipants: 32,
-    currentParticipants: 20,
-    entryFee: 1000,
-    prizePool: 20000,
-    status: "open",
-    difficulty: "Advanced",
-    image: "/placeholder.svg?height=200&width=300&text=Badminton+Tournament",
-    description: "Compete in Hyderabad's premier badminton singles event. Open to all advanced players.",
-    organizer: "Telangana Badminton Association",
-    rules: [
-      "Players must be 14+ years old",
-      "BWF rules apply",
-      "Entry fee includes GST"
-    ]
-  },
-  {
-    id: 4,
-    name: "Delhi Football Cup",
-    sport: "Football",
-    category: "5-a-side",
-    venue: "Ambedkar Stadium",
-    location: "Delhi",
-    startDate: "2024-12-10",
-    endDate: "2024-12-15",
-    registrationDeadline: "2024-12-01",
-    maxParticipants: 20,
-    currentParticipants: 15,
-    entryFee: 2500,
-    prizePool: 30000,
-    status: "open",
-    difficulty: "Beginner",
-    image: "/placeholder.svg?height=200&width=300&text=Football+Tournament",
-    description: "Join the Delhi Football Cup for a fun and competitive 5-a-side tournament.",
-    organizer: "Delhi Football Association",
-    rules: [
-      "Teams must have 5 players + 3 substitutes",
-      "All players must be 13+ years old",
-      "AIFF 5-a-side rules apply",
-      "Entry fee includes GST"
-    ]
-  },
-];
 
 export default function TournamentsPage() {
   const [userData, setUserData] = useState<any>(null)
-  const [tournaments, setTournaments] = useState<Tournament[]>(mockTournaments)
-  const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>(mockTournaments)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSport, setSelectedSport] = useState<string>("all")
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all")
@@ -153,19 +56,72 @@ export default function TournamentsPage() {
 
   useEffect(() => {
     const user = localStorage.getItem("user")
-    if (!user) {
-      router.push("/login")
-      return
+    const token = localStorage.getItem("authToken")
+    
+    if (user && token) {
+      try {
+        const parsedUser = JSON.parse(user)
+        setUserData(parsedUser)
+        setIsAuthenticated(true)
+      } catch (e) {
+        console.error('Error parsing user data:', e)
+        setIsAuthenticated(false)
+      }
+    } else {
+      setIsAuthenticated(false)
     }
-
-  const parsedUser = JSON.parse(user)
-  if (parsedUser.role !== "user") {
-      router.push("/login")
-      return
-    }
-
-    setUserData(parsedUser)
   }, [router])
+
+  // Fetch tournaments
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      try {
+        setLoading(true)
+        
+        // Fetch tournaments without authentication for public browsing
+        const response = await fetch('/api/tournaments', {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`
+          throw new Error(errorMessage)
+        }
+        
+        const data = await response.json()
+        
+        if (!data.tournaments) {
+          console.warn('No tournaments array in response:', data)
+          setTournaments([])
+          setFilteredTournaments([])
+          return
+        }
+        
+        const tournamentsWithCounts = data.tournaments.map((tournament: any) => ({
+          ...tournament,
+          currentParticipants: tournament.participants?.length || 0,
+          hasJoined: isAuthenticated && userData ? tournament.participants?.some((p: any) => {
+            return p.user === userData._id || p.user === userData.userId
+          }) : false
+        }))
+        
+        setTournaments(tournamentsWithCounts)
+        setFilteredTournaments(tournamentsWithCounts)
+      } catch (err: any) {
+        console.error('Error fetching tournaments:', err)
+        setError(err.message)
+        setTournaments([])
+        setFilteredTournaments([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTournaments()
+  }, [isAuthenticated, userData])
 
   useEffect(() => {
     let filtered = tournaments
@@ -213,20 +169,106 @@ export default function TournamentsPage() {
     }
   }
 
+  const handleJoinTournament = async (tournamentId: string) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to join tournaments.",
+        variant: "destructive"
+      })
+      router.push('/login')
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/tournaments/${tournamentId}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include' // Use cookie-based authentication
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to join tournament')
+      }
+
+      const result = await response.json()
+      
+      // Update local state
+      setTournaments(prev => prev.map(t => 
+        t._id === tournamentId 
+          ? { ...t, currentParticipants: result.currentParticipants, hasJoined: true }
+          : t
+      ))
+
+      toast({
+        title: "Success!",
+        description: "You have successfully joined the tournament.",
+      })
+    } catch (err: any) {
+      console.error('Error joining tournament:', err)
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive"
+      })
+    }
+  }
+
   const getAvailableSpots = (tournament: Tournament) => {
     return tournament.maxParticipants - tournament.currentParticipants
   }
 
-  if (!userData) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading tournaments...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error: {error}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
+      {/* Authentication Status Banner */}
+      {!isAuthenticated && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Trophy className="h-5 w-5 text-blue-600 mr-2" />
+              <div>
+                <h3 className="text-sm font-medium text-blue-800">Browse Tournaments</h3>
+                <p className="text-sm text-blue-600">Log in to join tournaments and track your registrations.</p>
+              </div>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/login">Log In</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Sports Tournaments</h1>
-          <p className="text-gray-600 mt-1">Discover and register for exciting sports tournaments</p>
+          <p className="text-gray-600 mt-1">
+            {isAuthenticated ? 'Discover and register for exciting sports tournaments' : 'Browse available tournaments'}
+          </p>
         </div>
         <div className="flex items-center space-x-2">
           <Trophy className="h-6 w-6 text-yellow-500" />
@@ -327,10 +369,10 @@ export default function TournamentsPage() {
         <TabsContent value="all" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTournaments.map((tournament) => (
-              <Card key={tournament.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Card key={tournament._id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="aspect-video relative overflow-hidden">
                   <img
-                    src={tournament.image}
+                    src="/placeholder.svg"
                     alt={tournament.name}
                     className="w-full h-full object-cover"
                   />
@@ -395,7 +437,7 @@ export default function TournamentsPage() {
                   </div>
 
                   <div className="flex gap-2 pt-2">
-                    <Link href={`/tournaments/${tournament.id}`} className="flex-1">
+                    <Link href={`/tournaments/${tournament._id}`} className="flex-1">
                       <Button variant="outline" className="w-full">
                         View Details
                       </Button>
@@ -413,7 +455,7 @@ export default function TournamentsPage() {
                             // Store registration data (in real app, this would go to your API)
                             const registrationData = {
                               transactionId: tx.id,
-                              tournamentId: tournament.id,
+                              tournamentId: tournament._id,
                               tournamentName: tournament.name,
                               entryFee: tournament.entryFee,
                               registrationDate: new Date().toISOString(),
@@ -436,7 +478,7 @@ export default function TournamentsPage() {
                               txId: tx.id,
                               amount: tournament.entryFee.toString(),
                               type: "tournament",
-                              tournamentId: tournament.id.toString(),
+                              tournamentId: tournament._id.toString(),
                               tournamentName: tournament.name,
                               venue: tournament.venue,
                               startDate: tournament.startDate
@@ -486,7 +528,7 @@ export default function TournamentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTournaments.filter(t => t.status === "open").map((tournament) => (
               // Same card component as above
-              <Card key={tournament.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Card key={tournament._id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 {/* Card content same as above */}
               </Card>
             ))}

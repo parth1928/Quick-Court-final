@@ -3,7 +3,10 @@ import mongoose from 'mongoose';
 const slotSubSchema = new mongoose.Schema({
   start: { type: String, required: true }, // HH:MM
   end: { type: String, required: true },   // HH:MM
-  isAvailable: { type: Boolean, default: true }
+  isAvailable: { type: Boolean, default: true },
+  price: { type: Number }, // optional override price
+  label: { type: String }, // Peak / Off-Peak etc.
+  maxBookings: { type: Number }, // capacity override
 }, { _id: false });
 
 const timeSlotSchema = new mongoose.Schema({

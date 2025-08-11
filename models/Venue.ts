@@ -33,7 +33,7 @@ const venueSchema = new mongoose.Schema({
   photos: [{ type: String }], // spec field alias
   startingPrice: { type: Number, default: 0 }, // price of cheapest court
   approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }, // existing
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true }, // spec alias
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }, // spec alias (no inline index to avoid duplicate)
   contactPhone: { type: String },
   contactEmail: { type: String, lowercase: true, match: /.+@.+\..+/ },
   slug: { type: String, unique: true, sparse: true, index: true },
@@ -59,6 +59,26 @@ const venueSchema = new mongoose.Schema({
   }],
   rating: { type: Number, min: 0, max: 5, default: 0 },
   reviewCount: { type: Number, default: 0 },
+  // Owner finance / operations fields
+  gstNumber: { type: String },
+  taxRate: { type: Number, default: 0 }, // percent
+  platformFeePercent: { type: Number, default: 10 },
+  payoutBank: {
+    accountHolder: String,
+    accountNumberMasked: String,
+    ifsc: String,
+    upi: String,
+  },
+  cancellationPolicy: {
+    freeCancelHours: { type: Number, default: 24 },
+    penaltyPercent: { type: Number, default: 50 },
+  },
+  internalNotes: { type: String },
+  lastOwnerReviewAt: { type: Date },
+  totalBookings: { type: Number, default: 0, index: true },
+  totalRevenue: { type: Number, default: 0 },
+  monthlyRevenue: { type: Number, default: 0 },
+  monthlyBookingCount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 }, {
@@ -66,7 +86,7 @@ const venueSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes for common card listings / filters
+// Indexes for common card listings / filters (single explicit status index)
 venueSchema.index({ status: 1 });
 venueSchema.index({ sports: 1 });
 venueSchema.index({ startingPrice: 1 });

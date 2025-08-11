@@ -20,7 +20,8 @@ export async function GET(request: Request) {
     // Filter by sport
     const sport = searchParams.get('sport');
     if (sport) {
-      query['courts.sport'] = sport;
+      // Use regex for case-insensitive search in sports array
+      query.sports = { $regex: new RegExp(sport, 'i') };
     }
 
     // Basic pagination
@@ -56,12 +57,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ venues: cards, pagination: { total, page, pages: Math.ceil(total / limit) } });
     }
 
-    venues = await Venue.find(query)
-        .populate('owner', 'name email phone')
-        .populate('courts')
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 });
+  venues = await Venue.find(query)
+    .populate('owner', 'name email phone')
+    // .populate('courts') // removed: Venue schema has no embedded courts array; courts are separate collection
+    .skip(skip)
+    .limit(limit)
+    .sort({ createdAt: -1 });
 
     const total = await Venue.countDocuments(query);
 

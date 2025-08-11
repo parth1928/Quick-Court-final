@@ -1,4 +1,14 @@
-import nodemailer from 'nodemailer';
+import { validateEnvVars } from '@/lib/env-validation';
+
+// Proper nodemailer import with error handling
+let nodemailer: any = null;
+
+try {
+  nodemailer = require('nodemailer');
+} catch (error) {
+  console.error('Nodemailer module not found:', error);
+  // This will be handled in the createTransporter function
+}
 
 // Email configuration interface
 interface EmailConfig {
@@ -20,7 +30,14 @@ interface OTPEmailData {
 /**
  * Creates a nodemailer transporter with SMTP configuration
  */
-const createTransporter = () => {
+let cachedTransporter: any = null;
+const createTransporter = async () => {
+  if (!nodemailer) {
+    throw new Error('Nodemailer module is not available. Please ensure nodemailer is installed: npm install nodemailer @types/nodemailer');
+  }
+
+  if (cachedTransporter) return cachedTransporter;
+  
   const config: EmailConfig = {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '587'),
@@ -30,18 +47,47 @@ const createTransporter = () => {
   };
 
   if (!config.user || !config.pass) {
-    throw new Error('SMTP credentials not configured in environment variables');
+    throw new Error('SMTP credentials not configured in environment variables. Please set SMTP_USER and SMTP_PASS.');
   }
 
-  return nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: {
-      user: config.user,
-      pass: config.pass,
-    },
-  });
+  // Validate environment variables before creating transporter
+  try {
+    validateEnvVars();
+  } catch (envError) {
+    console.warn('Environment validation warning:', envError);
+    // Continue with basic config if validation fails
+  }
+
+  try {
+    // Create transporter with validated config
+    cachedTransporter = nodemailer.createTransporter({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.user,
+        pass: config.pass,
+      },
+      tls: {
+        // Do not fail on invalid certificates
+        rejectUnauthorized: false
+      },
+      debug: process.env.NODE_ENV === 'development', // Enable debug in development
+      logger: process.env.NODE_ENV === 'development', // Log to console in development
+    });
+
+    // Verify the transporter configuration
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Testing email transporter configuration...');
+      await cachedTransporter.verify();
+      console.log('✅ Email transporter verified successfully');
+    }
+
+    return cachedTransporter;
+  } catch (transporterError: any) {
+    console.error('Failed to create email transporter:', transporterError);
+    throw new Error(`Email service configuration error: ${transporterError?.message || 'Unknown error'}`);
+  }
 };
 
 /**
@@ -218,17 +264,31 @@ const generateOTPEmailTemplate = (data: OTPEmailData): string => {
  * @param data - Email data including recipient email, OTP, and user name
  * @returns Promise resolving to success boolean
  */
-export const sendOTPEmail = async (data: OTPEmailData): Promise<boolean> => {
+export const sendOTPEmail = async (data: OTPEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> => {
   try {
-    const transporter = createTransporter();
+    console.log('🔄 Starting OTP email send process...');
+    console.log('📧 Target email:', data.email);
+    console.log('👤 User name:', data.userName);
+    console.log('🔐 OTP (first 2 digits):', data.otp.substring(0, 2) + '****');
+
+    // Check if email service is configured
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      const errorMsg = 'Email service not configured. Missing SMTP credentials.';
+      console.error('❌', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    console.log('🔧 Creating email transporter...');
+    const transporter = await createTransporter();
     
+    console.log('� Preparing email content...');
     const mailOptions = {
       from: {
         name: 'QuickCourt',
         address: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@quickcourt.com',
       },
       to: data.email,
-      subject: `🔐 Your QuickCourt Verification Code: ${data.otp}`,
+      subject: `🔐 Your QuickCourt Verification Code`,
       html: generateOTPEmailTemplate(data),
       text: `
         QuickCourt - Verification Code
@@ -239,7 +299,7 @@ export const sendOTPEmail = async (data: OTPEmailData): Promise<boolean> => {
         
         This code expires in ${data.expiryMinutes || 5} minutes.
         
-        Please enter this code to complete your login.
+        Please enter this code to complete your registration.
         
         If you didn't request this code, please ignore this email.
         
@@ -248,12 +308,62 @@ export const sendOTPEmail = async (data: OTPEmailData): Promise<boolean> => {
       `,
     };
 
+    console.log('📤 Sending email via SMTP...');
+    console.log('📍 SMTP Host:', process.env.SMTP_HOST);
+    console.log('🔌 SMTP Port:', process.env.SMTP_PORT);
+    console.log('👤 SMTP User:', process.env.SMTP_USER);
+    
     const info = await transporter.sendMail(mailOptions);
-    console.log('OTP email sent successfully:', info.messageId);
-    return true;
-  } catch (error) {
-    console.error('Failed to send OTP email:', error);
-    return false;
+    console.log('✅ OTP email sent successfully!');
+    console.log('📬 Message ID:', info.messageId);
+    console.log('📊 Response:', info.response);
+    
+    return { success: true, messageId: info.messageId };
+    
+  } catch (error: any) {
+    console.error('❌ Failed to send OTP email:', error);
+    
+    // Enhanced error handling with specific error types
+    let errorMessage = 'Unknown error occurred while sending email';
+    
+    if (error.code) {
+      switch (error.code) {
+        case 'EAUTH':
+          errorMessage = 'SMTP Authentication failed. Check your email credentials.';
+          break;
+        case 'ECONNECTION':
+        case 'ECONNREFUSED':
+          errorMessage = 'Could not connect to email server. Check SMTP settings.';
+          break;
+        case 'ETIMEDOUT':
+          errorMessage = 'Email sending timed out. Try again later.';
+          break;
+        case 'EENVELOPE':
+          errorMessage = 'Invalid email address format.';
+          break;
+        default:
+          errorMessage = `Email error (${error.code}): ${error.message}`;
+      }
+    } else if (error.message) {
+      if (error.message.includes('535-5.7.8')) {
+        errorMessage = 'Email authentication failed. You may need to enable "Less secure app access" or use an app password.';
+      } else if (error.message.includes('550')) {
+        errorMessage = 'Email rejected by server. Check recipient email address.';
+      } else if (error.message.includes('421')) {
+        errorMessage = 'Email service temporarily unavailable. Try again later.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    console.error('🔍 Detailed error:', {
+      code: error.code,
+      command: error.command,
+      response: error.response,
+      responseCode: error.responseCode,
+    });
+    
+    return { success: false, error: errorMessage };
   }
 };
 
@@ -263,7 +373,7 @@ export const sendOTPEmail = async (data: OTPEmailData): Promise<boolean> => {
  */
 export const verifyEmailConfig = async (): Promise<boolean> => {
   try {
-    const transporter = createTransporter();
+  const transporter = await createTransporter();
     await transporter.verify();
     console.log('Email configuration verified successfully');
     return true;

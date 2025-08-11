@@ -9,7 +9,12 @@
     "start": "next start",
     "seed": "node scripts/seed-simple.js",
     "seed:venues": "node scripts/seed-venues.js",
-    "test:2fa": "npx ts-node scripts/test-2fa.ts"
+    "test:email": "npx tsx scripts/test-email-config.ts",
+    "test:mongo": "npx tsx scripts/test-mongo-connection.ts",
+    "test:otp": "npx tsx scripts/test-otp-system.ts",
+    "update:indexes": "npx tsx scripts/update-otp-indexes.ts",
+    "test:2fa": "npm run test:email && npm run test:mongo && npm run test:otp && npm run update:indexes",
+    "verify:otp": "npx tsx scripts/verify-otp-system.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

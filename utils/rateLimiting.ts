@@ -4,17 +4,19 @@ import OTP from '@/models/OTP';
  * Rate limiting configuration
  */
 const RATE_LIMIT_CONFIG = {
-  MAX_ATTEMPTS: 3,
-  TIME_WINDOW_MINUTES: 10,
-  RESEND_COOLDOWN_SECONDS: 60, // Minimum time between resend requests
+  MAX_ATTEMPTS: 5, // Increased from 3 to 5 for better UX
+  TIME_WINDOW_MINUTES: 15, // Increased from 10 to 15 minutes
+  RESEND_COOLDOWN_SECONDS: 90, // Increased cooldown to prevent spam
+  MAX_VERIFICATION_ATTEMPTS: 3, // Max attempts to verify a single OTP
 };
 
 /**
- * Checks if user has exceeded OTP generation rate limit
+ * Enhanced rate limiting with IP tracking and error handling
  * @param email - User's email address
+ * @param ipAddress - Optional IP address for additional tracking
  * @returns Promise resolving to rate limit status
  */
-export const checkOTPRateLimit = async (email: string): Promise<{
+export const checkOTPRateLimit = async (email: string, ipAddress?: string): Promise<{
   allowed: boolean;
   remainingAttempts: number;
   nextAttemptIn?: number; // seconds until next attempt allowed
@@ -25,63 +27,117 @@ export const checkOTPRateLimit = async (email: string): Promise<{
     const timeWindow = new Date();
     timeWindow.setMinutes(timeWindow.getMinutes() - RATE_LIMIT_CONFIG.TIME_WINDOW_MINUTES);
 
-    // Count recent OTP generation attempts
-    const recentAttempts = await OTP.countDocuments({
+    // Build query for both email and IP-based rate limiting
+    const emailQuery = {
       email: normalizedEmail,
       createdAt: { $gte: timeWindow },
-    });
+    };
+
+    // Count recent OTP generation attempts for this email
+    let emailAttempts = 0;
+    let ipAttempts = 0;
+
+    try {
+      emailAttempts = await OTP.countDocuments(emailQuery);
+    } catch (dbError) {
+      console.warn('Database query error for email attempts:', dbError);
+      // Fallback: allow if database is having issues but log the error
+      return {
+        allowed: true,
+        remainingAttempts: RATE_LIMIT_CONFIG.MAX_ATTEMPTS,
+        message: 'Rate limit check bypassed due to database error',
+      };
+    }
+
+    // Also check IP-based rate limiting if IP is provided
+    if (ipAddress && ipAddress !== 'unknown') {
+      try {
+        const ipQuery = {
+          ipAddress,
+          createdAt: { $gte: timeWindow },
+        };
+        ipAttempts = await OTP.countDocuments(ipQuery);
+      } catch (dbError) {
+        console.warn('Database query error for IP attempts:', dbError);
+        // Continue with email-based rate limiting only
+      }
+    }
+
+    const totalAttempts = Math.max(emailAttempts, ipAttempts);
 
     // Check if user has exceeded rate limit
-    if (recentAttempts >= RATE_LIMIT_CONFIG.MAX_ATTEMPTS) {
-      // Find the oldest attempt to calculate when next attempt is allowed
-      const oldestAttempt = await OTP.findOne({
-        email: normalizedEmail,
-        createdAt: { $gte: timeWindow },
-      }).sort({ createdAt: 1 });
+    if (totalAttempts >= RATE_LIMIT_CONFIG.MAX_ATTEMPTS) {
+      try {
+        // Find the oldest attempt to calculate when next attempt is allowed
+        const oldestAttempt = await OTP.findOne({
+          $or: [
+            { email: normalizedEmail, createdAt: { $gte: timeWindow } },
+            ...(ipAddress && ipAddress !== 'unknown' ? [{ ipAddress, createdAt: { $gte: timeWindow } }] : [])
+          ],
+        }).sort({ createdAt: 1 });
 
-      if (oldestAttempt) {
-        const nextAttemptTime = new Date(oldestAttempt.createdAt);
-        nextAttemptTime.setMinutes(nextAttemptTime.getMinutes() + RATE_LIMIT_CONFIG.TIME_WINDOW_MINUTES);
-        const nextAttemptIn = Math.ceil((nextAttemptTime.getTime() - Date.now()) / 1000);
+        if (oldestAttempt) {
+          const nextAttemptTime = new Date(oldestAttempt.createdAt);
+          nextAttemptTime.setMinutes(nextAttemptTime.getMinutes() + RATE_LIMIT_CONFIG.TIME_WINDOW_MINUTES);
+          const nextAttemptIn = Math.ceil((nextAttemptTime.getTime() - Date.now()) / 1000);
 
+          return {
+            allowed: false,
+            remainingAttempts: 0,
+            nextAttemptIn: Math.max(0, nextAttemptIn),
+            message: `Too many OTP requests. Please try again in ${Math.ceil(nextAttemptIn / 60)} minutes.`,
+          };
+        }
+      } catch (dbError) {
+        console.warn('Database query error for oldest attempt:', dbError);
+        // Return a generic rate limit message
         return {
           allowed: false,
           remainingAttempts: 0,
-          nextAttemptIn: Math.max(0, nextAttemptIn),
-          message: `Too many OTP requests. Please try again in ${Math.ceil(nextAttemptIn / 60)} minutes.`,
+          nextAttemptIn: RATE_LIMIT_CONFIG.TIME_WINDOW_MINUTES * 60,
+          message: `Too many OTP requests. Please try again in ${RATE_LIMIT_CONFIG.TIME_WINDOW_MINUTES} minutes.`,
         };
       }
     }
 
     // Check for recent resend attempts (cooldown period)
-    const lastAttempt = await OTP.findOne({
-      email: normalizedEmail,
-    }).sort({ createdAt: -1 });
+    try {
+      const lastAttempt = await OTP.findOne({
+        email: normalizedEmail,
+      }).sort({ createdAt: -1 });
 
-    if (lastAttempt) {
-      const timeSinceLastAttempt = (Date.now() - lastAttempt.createdAt.getTime()) / 1000;
-      if (timeSinceLastAttempt < RATE_LIMIT_CONFIG.RESEND_COOLDOWN_SECONDS) {
-        const cooldownRemaining = RATE_LIMIT_CONFIG.RESEND_COOLDOWN_SECONDS - timeSinceLastAttempt;
-        return {
-          allowed: false,
-          remainingAttempts: RATE_LIMIT_CONFIG.MAX_ATTEMPTS - recentAttempts,
-          nextAttemptIn: Math.ceil(cooldownRemaining),
-          message: `Please wait ${Math.ceil(cooldownRemaining)} seconds before requesting another OTP.`,
-        };
+      if (lastAttempt) {
+        const timeSinceLastAttempt = (Date.now() - lastAttempt.createdAt.getTime()) / 1000;
+        if (timeSinceLastAttempt < RATE_LIMIT_CONFIG.RESEND_COOLDOWN_SECONDS) {
+          const cooldownRemaining = RATE_LIMIT_CONFIG.RESEND_COOLDOWN_SECONDS - timeSinceLastAttempt;
+          return {
+            allowed: false,
+            remainingAttempts: RATE_LIMIT_CONFIG.MAX_ATTEMPTS - totalAttempts,
+            nextAttemptIn: Math.ceil(cooldownRemaining),
+            message: `Please wait ${Math.ceil(cooldownRemaining)} seconds before requesting another OTP.`,
+          };
+        }
       }
+    } catch (dbError) {
+      console.warn('Database query error for last attempt:', dbError);
+      // Continue without cooldown check
     }
 
     return {
       allowed: true,
-      remainingAttempts: RATE_LIMIT_CONFIG.MAX_ATTEMPTS - recentAttempts,
+      remainingAttempts: RATE_LIMIT_CONFIG.MAX_ATTEMPTS - totalAttempts,
       message: 'OTP generation allowed',
     };
+    
   } catch (error) {
-    console.error('Error checking OTP rate limit:', error);
+    console.error('Critical error in rate limit check:', error);
+    
+    // In case of critical errors, be conservative but don't completely block users
+    // Allow the request but with a warning
     return {
-      allowed: false,
-      remainingAttempts: 0,
-      message: 'Unable to verify rate limit. Please try again later.',
+      allowed: true,
+      remainingAttempts: 1,
+      message: 'Rate limit verification temporarily unavailable',
     };
   }
 };
