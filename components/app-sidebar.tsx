@@ -1,6 +1,10 @@
 "use client"
 
+<<<<<<< Updated upstream
 import { BarChart3, Building2, LayoutDashboard, Shield, Users, User, Home, Calendar, Clock } from "lucide-react"
+=======
+import { BarChart3, Building2, LayoutDashboard, Shield, Users, User, Home, Calendar, Clock, Trophy, Award, Target } from "lucide-react"
+>>>>>>> Stashed changes
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -111,6 +115,24 @@ const userItems = [
     icon: Calendar,
   },
   {
+<<<<<<< Updated upstream
+=======
+    title: "Matches",
+    url: "/matches",
+    icon: Target,
+  },
+  {
+    title: "Tournaments",
+    url: "/tournaments",
+    icon: Trophy,
+  },
+  {
+    title: "My Tournaments",
+    url: "/my-tournaments",
+    icon: Award,
+  },
+  {
+>>>>>>> Stashed changes
     title: "Profile",
     url: "/profile",
     icon: User,

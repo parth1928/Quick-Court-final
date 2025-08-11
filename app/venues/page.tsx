@@ -10,6 +10,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+<<<<<<< Updated upstream
+=======
+import { PriceRangeSlider, RatingSlider } from "@/components/ui/enhanced-slider"
+>>>>>>> Stashed changes
 import { MapPin, Star, Filter, ChevronLeft, ChevronRight } from "lucide-react"
 
 const venues = [
