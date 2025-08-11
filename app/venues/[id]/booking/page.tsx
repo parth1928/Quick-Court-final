@@ -52,9 +52,37 @@ export default function BookingPage() {
   }
 
   const isTimeSlotAvailable = (timeSlot: string) => {
-    // Simulate some unavailable slots
+    if (!selectedDate || !selectedCourt) return false
+    
+    // Simulate some unavailable slots based on date and court
     const unavailableSlots = ["11:00 AM", "02:00 PM", "06:00 PM"]
+    
+    // Add dynamic unavailability based on day of week
+    const dayOfWeek = selectedDate.getDay()
+    if (dayOfWeek === 0 || dayOfWeek === 6) { // Weekend
+      // Some courts might be busier on weekends
+      if (selectedCourt === "1" || selectedCourt === "2") {
+        unavailableSlots.push("10:00 AM", "03:00 PM", "07:00 PM")
+      }
+    }
+    
     return !unavailableSlots.includes(timeSlot)
+  }
+
+  const isConsecutiveSlot = (timeSlot: string) => {
+    const currentIndex = timeSlots.indexOf(timeSlot)
+    if (currentIndex === -1) return false
+    
+    return selectedTimeSlots.some((selectedSlot) => {
+      const selectedIndex = timeSlots.indexOf(selectedSlot)
+      return Math.abs(selectedIndex - currentIndex) === 1
+    })
+  }
+
+  const handleTimeSlotClick = (timeSlot: string) => {
+    if (!isTimeSlotAvailable(timeSlot)) return
+    
+    toggleTimeSlot(timeSlot)
   }
 
   return (
@@ -75,14 +103,15 @@ export default function BookingPage() {
           <span className="text-gray-900">Booking</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Booking Form */}
-          <div className="lg:col-span-2 space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Book Your Court</h1>
-              <p className="text-gray-600">Select your preferred court, date, and time slots</p>
-            </div>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Book Your Court</h1>
+          <p className="text-gray-600">Select your preferred court, date, and time slots</p>
+        </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Court Selection, Date & Time */}
+          <div className="lg:col-span-2 space-y-6">
             {/* Court Selection */}
             <Card>
               <CardHeader>
@@ -142,32 +171,79 @@ export default function BookingPage() {
               </CardHeader>
               <CardContent>
                 {selectedDate && selectedCourt ? (
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-                    {timeSlots.map((timeSlot) => {
-                      const isAvailable = isTimeSlotAvailable(timeSlot)
-                      const isSelected = selectedTimeSlots.includes(timeSlot)
+                  <>
+                    <div className="mb-4 text-sm text-gray-600">
+                      <p>📅 Selected: {selectedDate.toLocaleDateString()}</p>
+                      <p>🏢 Court: {selectedCourtData?.name}</p>
+                      {selectedTimeSlots.length > 0 && (
+                        <p className="text-green-600 font-medium">
+                          ⏰ {selectedTimeSlots.length} slot{selectedTimeSlots.length !== 1 ? 's' : ''} selected
+                        </p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                      {timeSlots.map((timeSlot) => {
+                        const isAvailable = isTimeSlotAvailable(timeSlot)
+                        const isSelected = selectedTimeSlots.includes(timeSlot)
+                        const isConsecutive = isConsecutiveSlot(timeSlot)
 
-                      return (
-                        <Button
-                          key={timeSlot}
-                          variant={isSelected ? "default" : "outline"}
-                          className={`h-12 ${!isAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
-                          onClick={() => isAvailable && toggleTimeSlot(timeSlot)}
-                          disabled={!isAvailable}
-                        >
-                          {timeSlot}
-                        </Button>
-                      )
-                    })}
-                  </div>
+                        return (
+                          <Button
+                            key={timeSlot}
+                            variant={isSelected ? "default" : "outline"}
+                            className={`h-12 text-sm font-medium transition-all duration-200 ${
+                              !isAvailable 
+                                ? "opacity-40 cursor-not-allowed bg-gray-100 text-gray-400" 
+                                : isSelected 
+                                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md" 
+                                : isConsecutive
+                                ? "border-blue-300 bg-blue-50 hover:bg-blue-100"
+                                : "hover:border-blue-400 hover:bg-blue-50"
+                            }`}
+                            onClick={() => handleTimeSlotClick(timeSlot)}
+                            disabled={!isAvailable}
+                          >
+                            <div className="flex flex-col items-center">
+                              <span>{timeSlot}</span>
+                              {!isAvailable && (
+                                <span className="text-xs text-red-500">Booked</span>
+                              )}
+                              {isSelected && (
+                                <span className="text-xs">✓ Selected</span>
+                              )}
+                            </div>
+                          </Button>
+                        )
+                      })}
+                    </div>
+                    {selectedTimeSlots.length > 0 && (
+                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <h4 className="font-semibold text-green-800 mb-2">Selected Time Slots:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTimeSlots.sort().map((slot) => (
+                            <span key={slot} className="px-2 py-1 bg-green-100 text-green-800 rounded-md text-sm">
+                              {slot}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-sm text-green-700 mt-2">
+                          Total Duration: {selectedTimeSlots.length} hour{selectedTimeSlots.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <p className="text-gray-500 text-center py-8">Please select a court and date first</p>
+                  <div className="text-center py-8">
+                    <Clock className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500">Please select a court and date first</p>
+                    <p className="text-sm text-gray-400 mt-1">Then choose your preferred time slots</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Booking Summary */}
+          {/* Right Column - Booking Summary */}
           <div className="lg:col-span-1">
             <Card className="sticky top-8">
               <CardHeader>
@@ -263,11 +339,19 @@ export default function BookingPage() {
                   disabled={!selectedCourt || !selectedDate || selectedTimeSlots.length === 0}
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Proceed to Payment
+                  {selectedTimeSlots.length === 0 
+                    ? "Select Time Slots" 
+                    : `Proceed to Payment (${selectedTimeSlots.length} slot${selectedTimeSlots.length !== 1 ? 's' : ''})`
+                  }
                 </Button>
 
-                <div className="text-center text-xs text-gray-500">
+                <div className="text-center text-xs text-gray-500 space-y-1">
                   <p>Free cancellation up to 24 hours before your booking</p>
+                  {selectedTimeSlots.length > 0 && (
+                    <p className="text-green-600">
+                      💡 Tip: Book consecutive slots for better rates!
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
