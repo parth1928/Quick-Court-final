@@ -142,4 +142,17 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  
+  /* Chart specific utilities */
+  .chart-height-300 {
+    height: 300px;
+  }
+  
+  .chart-height-250 {
+    height: 250px;
+  }
+  
+  .chart-height-400 {
+    height: 400px;
+  }
 }
