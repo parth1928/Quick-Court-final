@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatInr } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Building2, Calendar, DollarSign, TrendingUp, Activity } from "lucide-react"
@@ -24,7 +25,7 @@ const kpiData = [
   },
   {
     title: "Earnings (simulated)",
-    value: "$4,250",
+  value: formatInr(425000),
     icon: DollarSign,
     change: "+18% from last month",
     changeType: "positive" as const,
@@ -41,33 +42,33 @@ const kpiData = [
 const recentBookings = [
   {
     id: 1,
-    facility: "Elite Sports Complex",
+    facility: "Elite Sports Arena",
     court: "Basketball Court A",
-    user: "John Smith",
+    user: "Rahul Sharma",
     date: "2024-01-25",
     time: "4:00 PM - 5:00 PM",
     status: "Confirmed",
-    amount: "$25",
+    amount: 700,
   },
   {
     id: 2,
-    facility: "Elite Sports Complex",
+    facility: "Elite Sports Arena",
     court: "Tennis Court 1",
-    user: "Sarah Johnson",
+    user: "Ananya Singh",
     date: "2024-01-24",
     time: "2:00 PM - 3:00 PM",
     status: "Completed",
-    amount: "$30",
+    amount: 850,
   },
   {
     id: 3,
-    facility: "Community Center",
+    facility: "Community Sports Centre",
     court: "Volleyball Court",
-    user: "Mike Wilson",
+    user: "Vikram Patel",
     date: "2024-01-23",
     time: "6:00 PM - 7:00 PM",
     status: "Completed",
-    amount: "$20",
+    amount: 600,
   },
 ]
 
@@ -194,7 +195,7 @@ export default function FacilityDashboard() {
                     >
                       {booking.status}
                     </Badge>
-                    <span className="font-semibold text-gray-900 text-sm">{booking.amount}</span>
+                    <span className="font-semibold text-gray-900 text-sm">{formatInr(booking.amount)}</span>
                   </div>
                 </div>
               ))}

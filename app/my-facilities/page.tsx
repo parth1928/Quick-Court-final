@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatInr } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Plus } from "lucide-react"
@@ -11,7 +12,7 @@ const facilities = [
   {
     id: 1,
     name: "Elite Sports Complex",
-    location: "Downtown NYC",
+  location: "Andheri West, Mumbai",
     sports: ["Basketball", "Tennis", "Volleyball"],
     status: "Active",
     rating: 4.8,
@@ -116,7 +117,7 @@ export default function MyFacilitiesPage() {
                     <div className="text-xs text-gray-600">Bookings</div>
                   </div>
                   <div>
-                    <div className="text-lg font-bold text-gray-900">${facility.monthlyRevenue}</div>
+                    <div className="text-lg font-bold text-gray-900">{formatInr(facility.monthlyRevenue)}</div>
                     <div className="text-xs text-gray-600">Revenue</div>
                   </div>
                 </div>

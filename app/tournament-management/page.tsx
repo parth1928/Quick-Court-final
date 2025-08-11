@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatInr } from "@/lib/format"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -49,14 +50,14 @@ const mockTournaments: Tournament[] = [
     sport: "Basketball",
     category: "5v5",
     venue: "Elite Sports Complex",
-    location: "Downtown NYC",
+  location: "Mumbai",
     startDate: "2024-03-15",
     endDate: "2024-03-17",
     registrationDeadline: "2024-03-10",
     maxParticipants: 16,
     currentParticipants: 12,
-    entryFee: 150,
-    prizePool: 2000,
+  entryFee: 5000,
+  prizePool: 75000,
     status: "open",
     difficulty: "Intermediate",
     description: "Premier basketball tournament for amateur teams",
@@ -70,14 +71,14 @@ const mockTournaments: Tournament[] = [
     sport: "Tennis",
     category: "Singles",
     venue: "Premier Tennis Club",
-    location: "Manhattan",
+  location: "Chennai",
     startDate: "2024-04-01",
     endDate: "2024-04-07",
     registrationDeadline: "2024-03-25",
     maxParticipants: 32,
     currentParticipants: 28,
-    entryFee: 75,
-    prizePool: 1500,
+  entryFee: 3000,
+  prizePool: 50000,
     status: "open",
     difficulty: "Advanced",
     description: "Professional-level tennis tournament",
@@ -91,14 +92,14 @@ const mockTournaments: Tournament[] = [
     sport: "Football",
     category: "11v11",
     venue: "Central Park Fields",
-    location: "Manhattan",
+  location: "Hyderabad",
     startDate: "2024-05-01",
     endDate: "2024-07-31",
     registrationDeadline: "2024-04-20",
     maxParticipants: 24,
     currentParticipants: 8,
-    entryFee: 200,
-    prizePool: 3000,
+  entryFee: 6000,
+  prizePool: 90000,
     status: "draft",
     difficulty: "Beginner",
     description: "Youth soccer league for ages 16-18",
@@ -127,8 +128,8 @@ export default function TournamentManagementPage() {
       return
     }
 
-    const parsedUser = JSON.parse(user)
-    if (parsedUser.userType !== "admin") {
+  const parsedUser = JSON.parse(user)
+  if (parsedUser.role !== "admin") {
       router.push("/login")
       return
     }
@@ -521,7 +522,7 @@ function TournamentTable({
                 <TableCell>
                   <div className="text-sm">
                     <span className="font-medium">{tournament.currentParticipants}/{tournament.maxParticipants}</span>
-                    <p className="text-gray-600">${tournament.entryFee} fee</p>
+                    <p className="text-gray-600">{formatInr(tournament.entryFee)} fee</p>
                   </div>
                 </TableCell>
                 <TableCell>

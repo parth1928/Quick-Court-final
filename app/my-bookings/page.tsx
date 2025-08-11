@@ -16,7 +16,7 @@ const bookings = [
     date: "2024-01-25",
     time: "4:00 PM - 5:00 PM",
     status: "Upcoming",
-    price: 25,
+  price: 1200,
   },
   {
     id: 2,
@@ -26,7 +26,7 @@ const bookings = [
     date: "2024-01-20",
     time: "2:00 PM - 3:00 PM",
     status: "Completed",
-    price: 40,
+  price: 950,
   },
 ]
 
@@ -97,7 +97,7 @@ export default function MyBookingsPage() {
                   {booking.time}
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
-                  <span className="font-semibold">${booking.price}</span>
+                  <span className="font-semibold">₹{booking.price}</span>
                 </div>
               </div>
 

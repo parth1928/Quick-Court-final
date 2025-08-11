@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { formatInr } from "@/lib/format"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,9 +13,9 @@ import { MapPin, Star, Clock, Wifi, Car, Coffee, Users, ChevronLeft, ChevronRigh
 const venue = {
   id: 1,
   name: "Elite Sports Complex",
-  location: "123 Sports Avenue, Downtown NYC, NY 10001",
+  location: "12 Sports Avenue, Koramangala, Bengaluru, KA 560095",
   rating: 4.8,
-  reviews: 124,
+  reviewCount: 124,
   description:
     "Elite Sports Complex is a premier sports facility offering state-of-the-art courts and amenities. Perfect for both casual players and serious athletes, our facility features professional-grade equipment and excellent customer service.",
   images: [
@@ -43,8 +44,8 @@ const venue = {
     sunday: "7:00 AM - 10:00 PM",
   },
   contact: {
-    phone: "(555) 123-4567",
-    email: "info@elitesportscomplex.com",
+    phone: "+91 98765 43210",
+    email: "info@elitesportsarena.in",
   },
   reviews: [
     {
@@ -84,7 +85,7 @@ export default function VenueDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header isAuthenticated={true} />
+  <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
@@ -106,7 +107,7 @@ export default function VenueDetailPage() {
                 <div className="flex items-center">
                   <Star className="h-5 w-5 text-yellow-400 fill-current" />
                   <span className="ml-1 font-semibold">{venue.rating}</span>
-                  <span className="ml-1 text-gray-500">({venue.reviews} reviews)</span>
+                  <span className="ml-1 text-gray-500">({venue.reviewCount} reviews)</span>
                 </div>
                 <div className="flex items-center text-gray-600">
                   <MapPin className="h-4 w-4 mr-1" />
@@ -299,8 +300,8 @@ export default function VenueDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center">
-                  <span className="text-3xl font-bold text-blue-600">$25</span>
-                  <span className="text-gray-600">/hour</span>
+                  <span className="text-3xl font-bold text-blue-600">{formatInr(950)}</span>
+                  <span className="text-gray-600">/hour (incl. taxes)</span>
                 </div>
 
                 <Button className="w-full" size="lg" asChild>

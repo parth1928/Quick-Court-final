@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { formatInr } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Calendar, Clock, User } from "lucide-react"
 
@@ -12,7 +13,7 @@ const bookings = [
     id: 1,
     facility: "Elite Sports Complex",
     court: "Basketball Court A",
-    user: "John Smith",
+  user: "Rahul Sharma",
     date: "2024-01-25",
     time: "4:00 PM - 5:00 PM",
     status: "Confirmed",
@@ -22,7 +23,7 @@ const bookings = [
     id: 2,
     facility: "Elite Sports Complex",
     court: "Tennis Court 1",
-    user: "Sarah Johnson",
+  user: "Ananya Singh",
     date: "2024-01-24",
     time: "2:00 PM - 3:00 PM",
     status: "Completed",
@@ -32,7 +33,7 @@ const bookings = [
     id: 3,
     facility: "Community Recreation Center",
     court: "Volleyball Court",
-    user: "Mike Wilson",
+  user: "Vikram Patel",
     date: "2024-01-23",
     time: "6:00 PM - 7:00 PM",
     status: "Completed",
@@ -111,7 +112,7 @@ export default function FacilityBookingsPage() {
                   >
                     {booking.status}
                   </Badge>
-                  <span className="font-semibold text-gray-900">${booking.amount}</span>
+                  <span className="font-semibold text-gray-900">{formatInr(booking.amount)}</span>
                   <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 bg-transparent">
                     View Details
                   </Button>

@@ -156,8 +156,8 @@ export default function TournamentsPage() {
       return
     }
 
-    const parsedUser = JSON.parse(user)
-    if (parsedUser.userType !== "user") {
+  const parsedUser = JSON.parse(user)
+  if (parsedUser.role !== "user") {
       router.push("/login")
       return
     }
