@@ -125,7 +125,7 @@ export default function FacilityDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Facility Owner Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back, {userData.name}! Here's your facility overview</p>
+        <p className="text-gray-600 mt-2">Welcome back, {userData.name}! Here&apos;s your facility overview</p>
       </div>
 
       {/* KPI Cards */}

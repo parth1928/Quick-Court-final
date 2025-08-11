@@ -10,6 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Calendar, Clock, Search, Filter } from "lucide-react"
 
+interface UserData {
+  userType: string
+  name: string
+  email: string
+}
+
 const bookingsData = [
   {
     id: 1,
@@ -74,8 +80,8 @@ const bookingsData = [
 ]
 
 export default function BookingOverviewPage() {
-  const [userData, setUserData] = useState<any>(null)
-  const [bookings, setBookings] = useState(bookingsData)
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [bookings] = useState(bookingsData)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
   const [dateFilter, setDateFilter] = useState("All")

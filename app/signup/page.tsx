@@ -223,7 +223,7 @@ export default function SignUpPage() {
             <DialogHeader>
               <DialogTitle className="text-gray-900">Verify Your Email</DialogTitle>
               <DialogDescription className="text-gray-600">
-                We've sent a 6-digit verification code to your email address. Please enter it below.
+                We&apos;ve sent a 6-digit verification code to your email address. Please enter it below.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">

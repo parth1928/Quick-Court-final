@@ -93,7 +93,7 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back, {userData.name}! Here's your platform overview</p>
+        <p className="text-gray-600 mt-2">Welcome back, {userData.name}! Here&apos;s your platform overview</p>
       </div>
 
       {/* Stats Overview */}
