@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar"
 
 interface UserData {
-  userType: string
+  role: string
   name: string
   email: string
 }
@@ -143,11 +143,11 @@ export function AppSidebar() {
       const parsedUser = JSON.parse(user)
       setUserData(parsedUser)
 
-      switch (parsedUser.userType) {
+      switch (parsedUser.role) {
         case "admin":
           setItems(adminItems)
           break
-        case "facility-owner":
+        case "owner":
           setItems(facilityOwnerItems)
           break
         case "user":
@@ -162,10 +162,10 @@ export function AppSidebar() {
   const getSidebarTitle = () => {
     if (!userData) return "QuickCourt Admin"
 
-    switch (userData.userType) {
+    switch (userData.role) {
       case "admin":
         return "QuickCourt Admin"
-      case "facility-owner":
+      case "owner":
         return "Facility Owner"
       case "user":
         return "QuickCourt"

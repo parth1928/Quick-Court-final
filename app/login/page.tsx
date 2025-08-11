@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [userType, setUserType] = useState("admin")
+  const [userType, setUserType] = useState("user")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -23,26 +23,34 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate authentication
-    setTimeout(() => {
-      const userData = {
-        email,
-        userType,
-        name: getUserName(userType),
-        loginTime: new Date().toISOString(),
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          userType
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to login');
       }
 
-      localStorage.setItem("user", JSON.stringify(userData))
-      localStorage.setItem("authToken", "mock-auth-token")
-
-      setIsLoading(false)
+  // Store user data locally (token is already set in HTTP-only cookie by API)
+  localStorage.setItem("user", JSON.stringify(data.user))
 
       // Redirect based on user type
-      switch (userType) {
+      switch (data.user.role) {
         case "admin":
-          router.push("/")
+          router.push("/admin-dashboard")
           break
-        case "facility-owner":
+        case "owner":
           router.push("/facility-dashboard")
           break
         case "user":
@@ -51,14 +59,17 @@ export default function LoginPage() {
         default:
           router.push("/")
       }
-    }, 1000)
+    } catch (error: any) {
+      console.error('Login error:', error);
+      // You might want to show an error message to the user here
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getUserName = (type: string) => {
     switch (type) {
-      case "admin":
-        return "Admin User"
-      case "facility-owner":
+      case "owner":
         return "Facility Owner"
       case "user":
         return "Regular User"
@@ -99,9 +110,8 @@ export default function LoginPage() {
                     <SelectValue placeholder="Select user type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="facility-owner">Facility Owner</SelectItem>
                     <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="owner">Facility Owner</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

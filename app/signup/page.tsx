@@ -18,16 +18,70 @@ export default function SignUpPage() {
   const [userType, setUserType] = useState("user")
   const [showOTPModal, setShowOTPModal] = useState(false)
   const [otp, setOtp] = useState(["", "", "", "", "", ""])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     password: "",
+    phone: "",
   })
   const router = useRouter()
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    setShowOTPModal(true)
+    
+    setErrorMsg(null)
+    setIsSubmitting(true)
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+          role: userType,
+          phone: formData.phone.trim() || '+1234567890',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Registration failed');
+      }
+
+      // Store user (token already in HTTP-only cookie)
+      localStorage.setItem('user', JSON.stringify({
+        ...data.user,
+        loginTime: new Date().toISOString(),
+      }));
+
+      // Redirect based on user type
+      switch (data.user.role) {
+        case "admin":
+          router.push("/admin-dashboard")
+          break
+        case "owner":
+          router.push("/facility-dashboard")
+          break
+        case "user":
+          router.push("/user-home")
+          break
+        default:
+          router.push("/")
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      const msg = error instanceof Error ? error.message : 'Registration failed'
+      setErrorMsg(msg)
+      alert(msg)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleOTPChange = (index: number, value: string) => {
@@ -44,33 +98,10 @@ export default function SignUpPage() {
     }
   }
 
-  const handleVerifyOTP = () => {
-    const userData = {
-      email: formData.email,
-      userType,
-      name: formData.fullName,
-      loginTime: new Date().toISOString(),
-    }
-
-    localStorage.setItem("user", JSON.stringify(userData))
-    localStorage.setItem("authToken", "mock-auth-token")
-
+  const handleVerifyOTP = async () => {
+    // In a real implementation, we would verify the OTP with the backend
+    // For now, we'll just close the modal as the registration is already complete
     setShowOTPModal(false)
-
-    // Redirect based on user type
-    switch (userType) {
-      case "admin":
-        router.push("/")
-        break
-      case "facility-owner":
-        router.push("/facility-dashboard")
-        break
-      case "user":
-        router.push("/user-home")
-        break
-      default:
-        router.push("/")
-    }
   }
 
   return (
@@ -106,8 +137,7 @@ export default function SignUpPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="facility-owner">Facility Owner</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="owner">Facility Owner</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -137,6 +167,21 @@ export default function SignUpPage() {
                   placeholder="Enter your email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="border-gray-300"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-gray-700">
+                  Phone
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="Enter your phone number"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="border-gray-300"
                   required
                 />
@@ -201,8 +246,11 @@ export default function SignUpPage() {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full bg-gray-900 hover:bg-gray-800 text-white">
-                Create Account
+              {errorMsg && (
+                <p className="text-sm text-red-600" role="alert">{errorMsg}</p>
+              )}
+              <Button disabled={isSubmitting} type="submit" className="w-full bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-70">
+                {isSubmitting ? 'Creating Account...' : 'Create Account'}
               </Button>
 
               <div className="text-center">

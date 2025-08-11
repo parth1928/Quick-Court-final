@@ -17,7 +17,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 interface UserData {
   name: string
   email: string
-  userType: string
+  role: string
 }
 
 export function Header() {
@@ -40,10 +40,10 @@ export function Header() {
   const getDisplayTitle = () => {
     if (!userData) return "QuickCourt Admin"
 
-    switch (userData.userType) {
+    switch (userData.role) {
       case "admin":
         return "QuickCourt Admin"
-      case "facility-owner":
+      case "owner":
         return "Facility Owner Dashboard"
       case "user":
         return "QuickCourt"
