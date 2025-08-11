@@ -2,10 +2,13 @@
 
 import type React from "react"
 import { useState } from "react"
+import { useTheme } from "next-themes"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { Sun, Moon, Laptop } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -68,28 +71,53 @@ export default function LoginPage() {
 
   // Removed getUserName since role selection is gone
 
+  const { theme, setTheme } = useTheme();
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="flex w-full max-w-4xl bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Left side: Photo */}
         <div className="hidden md:flex md:w-1/2 bg-gray-100 p-2">
           <img
-            src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754908993~exp=1754912593~hmac=50369d3d421502b36127f15897d3a3cbfa5e32ad16b54a46046fb458e0a6b157&w=360%20360w"
+            src="/woman.jpg"
             alt="Login illustration"
-            className="object-cover w-full h-full rounded-xl"
+            className="object-cover object-center w-full h-full rounded-xl"
             style={{ minHeight: '400px', maxHeight: '600px' }}
           />
         </div>
         {/* Right side: Login Form */}
         <div className="w-full md:w-1/2 p-8 flex flex-col justify-center space-y-8">
-          {/* Header */}
-          <div className="text-center">
-            <Link href="/welcome" className="flex items-center justify-center space-x-2 mb-8">
-              <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">QC</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">QuickCourt</span>
-            </Link>
+          {/* Header with Theme Toggle */}
+          <div className="flex flex-col items-center">
+            <div className="flex w-full justify-between items-center mb-8">
+              <Link href="/welcome" className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">QC</span>
+                </div>
+                <span className="text-xl font-bold text-gray-900">QuickCourt</span>
+              </Link>
+              {/* Theme Toggle Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Toggle theme">
+                    {theme === "dark" ? <Moon className="h-5 w-5" /> : theme === "light" ? <Sun className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+                    <DropdownMenuRadioItem value="light">
+                      <Sun className="mr-2 h-4 w-4" /> Light
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="dark">
+                      <Moon className="mr-2 h-4 w-4" /> Dark
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="system">
+                      <Laptop className="mr-2 h-4 w-4" /> System
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
             <p className="mt-2 text-gray-600">Sign in to your account</p>
           </div>
