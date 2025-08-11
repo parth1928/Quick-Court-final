@@ -8,6 +8,7 @@
     "lint": "next lint",
     "start": "next start",
     "seed": "node scripts/seed-simple.js",
+    "seed:venues": "node scripts/seed-venues.js",
     "test:2fa": "npx ts-node scripts/test-2fa.ts"
   },
   "dependencies": {

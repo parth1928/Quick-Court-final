@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,14 +19,15 @@ import {
 } from "@/components/ui/dialog"
 import { User, Edit, Calendar, Clock, Star } from "lucide-react"
 
-const userProfile = {
-  name: "John Smith",
-  email: "john.smith@email.com",
-  phone: "+1 (555) 123-4567",
-  joinDate: "March 2023",
-  totalBookings: 24,
-  favoriteVenues: 3,
-  avatar: "/placeholder.svg?height=100&width=100&text=JS",
+interface ProfileData {
+  id: string
+  name: string
+  email: string
+  phone: string
+  avatar: string
+  memberSince: string
+  totalBookings: number
+  bookingCount?: number
 }
 
 const bookings = [
@@ -81,11 +82,48 @@ const bookings = [
 export default function ProfilePage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [filterStatus, setFilterStatus] = useState("All")
-  const [editForm, setEditForm] = useState({
-    name: userProfile.name,
-    email: userProfile.email,
-    phone: userProfile.phone,
-  })
+  const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' })
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch('/api/users/me', { cache: 'no-store' })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to load profile')
+        setProfile(data)
+        setEditForm({ name: data.name || '', email: data.email || '', phone: data.phone || '' })
+      } catch (e:any) {
+        setError(e.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      const res = await fetch('/api/users/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editForm.name, phone: editForm.phone })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Update failed')
+      setProfile(p => p ? { ...p, name: data.name, phone: data.phone } : p)
+      setIsEditModalOpen(false)
+    } catch (e:any) {
+      alert(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const filteredBookings = bookings.filter((booking) => filterStatus === "All" || booking.status === filterStatus)
 
@@ -105,6 +143,29 @@ export default function ProfilePage() {
   const handleCancelBooking = (bookingId: number) => {
     // Handle booking cancellation
     console.log("Cancelling booking:", bookingId)
+  }
+
+  if (loading) return <div className="p-8">Loading profile...</div>
+  if (error) return <div className="p-8 text-red-600">{error}</div>
+
+  // If profile somehow missing (shouldn't normally), show create prompt
+  if (!profile) {
+    return (
+      <div className="p-8 max-w-lg mx-auto">
+        <h1 className="text-2xl font-bold mb-4">Complete Your Profile</h1>
+        <div className="space-y-4">
+          <div>
+            <Label>Name</Label>
+            <Input value={editForm.name} onChange={e=>setEditForm(f=>({...f,name:e.target.value}))} />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input value={editForm.phone} onChange={e=>setEditForm(f=>({...f,phone:e.target.value}))} />
+          </div>
+          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Profile'}</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -184,33 +245,27 @@ export default function ProfilePage() {
                     <User className="h-10 w-10 text-gray-400" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold">{userProfile.name}</h3>
-                    <p className="text-gray-600">{userProfile.email}</p>
-                    <p className="text-gray-600">{userProfile.phone}</p>
-                    <p className="text-sm text-gray-500 mt-2">Member since {userProfile.joinDate}</p>
+                    <h3 className="text-xl font-semibold">{profile.name}</h3>
+                    <p className="text-gray-600">{profile.email}</p>
+                    <p className="text-gray-600">{profile.phone}</p>
+                    <p className="text-sm text-gray-500 mt-2">Member since {new Date(profile.memberSince).toLocaleDateString()}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Stats Cards (Avg Rating removed) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-blue-600 mb-2">{userProfile.totalBookings}</div>
+                  <div className="text-3xl font-bold text-blue-600 mb-2">{profile.totalBookings}</div>
                   <div className="text-sm text-gray-600">Total Bookings</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-green-600 mb-2">{userProfile.favoriteVenues}</div>
+                  <div className="text-3xl font-bold text-green-600 mb-2">0</div>
                   <div className="text-sm text-gray-600">Favorite Venues</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-purple-600 mb-2">4.8</div>
-                  <div className="text-sm text-gray-600">Avg Rating Given</div>
                 </CardContent>
               </Card>
             </div>

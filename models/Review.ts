@@ -21,6 +21,9 @@ const reviewSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  deletedAt: { type: Date, default: null },
   createdAt: {
     type: Date,
     default: Date.now,

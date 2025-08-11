@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
+import { formatInr } from "@/lib/format"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,14 +11,15 @@ import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { CalendarDays, Clock, MapPin, CreditCard } from "lucide-react"
-import { DurationSlider } from "@/components/ui/enhanced-slider"
+import PaySimulator from "@/components/pay-simulator"
+import { toast } from "@/components/ui/use-toast"
 
 const courts = [
-  { id: 1, name: "Basketball Court A", sport: "Basketball", price: 25 },
-  { id: 2, name: "Basketball Court B", sport: "Basketball", price: 25 },
-  { id: 3, name: "Tennis Court 1", sport: "Tennis", price: 30 },
-  { id: 4, name: "Tennis Court 2", sport: "Tennis", price: 30 },
-  { id: 5, name: "Volleyball Court", sport: "Volleyball", price: 20 },
+  { id: 1, name: "Basketball Court A", sport: "Basketball", price: 700 },
+  { id: 2, name: "Basketball Court B", sport: "Basketball", price: 700 },
+  { id: 3, name: "Tennis Court 1", sport: "Tennis", price: 850 },
+  { id: 4, name: "Tennis Court 2", sport: "Tennis", price: 850 },
+  { id: 5, name: "Volleyball Court", sport: "Volleyball", price: 600 },
 ]
 
 const timeSlots = [
@@ -37,9 +39,13 @@ const timeSlots = [
 
 export default function BookingPage() {
   const [selectedCourt, setSelectedCourt] = useState<string>("")
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([])
-  const [duration, setDuration] = useState([2]) // Default 2 hours
+
+  // Fix hydration error: only set date on client
+  React.useEffect(() => {
+    setSelectedDate(new Date())
+  }, [])
 
   const selectedCourtData = courts.find((court) => court.id.toString() === selectedCourt)
   const totalHours = selectedTimeSlots.length
@@ -61,7 +67,7 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      {/* Removed duplicate Header to avoid double navbars */}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
@@ -105,7 +111,7 @@ export default function BookingPage() {
                           <span>{court.name}</span>
                           <div className="flex items-center space-x-2 ml-4">
                             <Badge variant="secondary">{court.sport}</Badge>
-                            <span className="font-semibold">${court.price}/hr</span>
+                            <span className="font-semibold">{formatInr(court.price)}/hr</span>
                           </div>
                         </div>
                       </SelectItem>
@@ -131,32 +137,6 @@ export default function BookingPage() {
                   disabled={(date) => date < new Date() || date < new Date("1900-01-01")}
                   className="rounded-md border"
                 />
-              </CardContent>
-            </Card>
-
-            {/* Duration Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="h-5 w-5 mr-2" />
-                  Preferred Duration
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600">
-                    How long would you like to book the court?
-                  </p>
-                  <DurationSlider 
-                    value={duration} 
-                    onValueChange={setDuration} 
-                    min={1} 
-                    max={8}
-                  />
-                  <p className="text-xs text-gray-500">
-                    This will help us suggest the best consecutive time slots for you.
-                  </p>
-                </div>
               </CardContent>
             </Card>
 
@@ -206,7 +186,7 @@ export default function BookingPage() {
                   <>
                     <div>
                       <h4 className="font-semibold">Elite Sports Complex</h4>
-                      <p className="text-sm text-gray-600">123 Sports Avenue, Downtown NYC</p>
+                      <p className="text-sm text-gray-600">123 Sports Avenue, Andheri, Mumbai</p>
                     </div>
 
                     <Separator />
@@ -224,7 +204,7 @@ export default function BookingPage() {
                         </div>
                         <div className="flex justify-between">
                           <span>Rate:</span>
-                          <span>${selectedCourtData.price}/hour</span>
+                          <span>{formatInr(selectedCourtData.price)}/hour</span>
                         </div>
                       </div>
                     </div>
@@ -268,16 +248,16 @@ export default function BookingPage() {
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>Subtotal ({totalHours} hours):</span>
-                            <span>${subtotal.toFixed(2)}</span>
+                            <span>{formatInr(subtotal)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Tax (8%):</span>
-                            <span>${tax.toFixed(2)}</span>
+                            <span>{formatInr(tax)}</span>
                           </div>
                           <Separator />
                           <div className="flex justify-between font-semibold">
                             <span>Total:</span>
-                            <span>${total.toFixed(2)}</span>
+                            <span>{formatInr(total)}</span>
                           </div>
                         </div>
                       </>
@@ -285,14 +265,71 @@ export default function BookingPage() {
                   </>
                 )}
 
-                <Button
-                  className="w-full"
-                  size="lg"
-                  disabled={!selectedCourt || !selectedDate || selectedTimeSlots.length === 0}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Proceed to Payment
-                </Button>
+                {/* Payment Integration */}
+                {!selectedCourt || !selectedDate || selectedTimeSlots.length === 0 ? (
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    disabled
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Complete Booking Details
+                  </Button>
+                ) : (
+                  <PaySimulator
+                    amount={total}
+                    descriptor={`Venue Booking - ${selectedCourtData?.name} on ${selectedDate?.toLocaleDateString()}`}
+                    buttonLabel="Book & Pay Now"
+                    onSuccess={(tx) => {
+                      // Handle successful booking
+                      console.log("Booking successful:", tx)
+                      
+                      // Store booking data (in real app, this would go to your API)
+                      const bookingData = {
+                        transactionId: tx.id,
+                        venue: "Elite Sports Complex", // This should come from props or API
+                        court: selectedCourtData?.name,
+                        sport: selectedCourtData?.sport,
+                        date: selectedDate?.toLocaleDateString(),
+                        timeSlots: selectedTimeSlots,
+                        amount: total,
+                        status: "Confirmed"
+                      }
+                      
+                      // Example API call (uncomment for real implementation):
+                      // await fetch("/api/bookings", { 
+                      //   method: "POST", 
+                      //   body: JSON.stringify(bookingData) 
+                      // })
+                      
+                      toast({
+                        title: "Booking Confirmed!",
+                        description: `Redirecting to confirmation page...`,
+                      })
+                      
+                      // Redirect to payment completed page with booking details
+                      const queryParams = new URLSearchParams({
+                        txId: tx.id,
+                        amount: total.toString(),
+                        venue: "Elite Sports Complex",
+                        court: selectedCourtData?.name || "",
+                        date: selectedDate?.toLocaleDateString() || "",
+                        timeSlots: selectedTimeSlots.join(',')
+                      })
+                      
+                      setTimeout(() => {
+                        window.location.href = `/payment-completed?${queryParams.toString()}`
+                      }, 1000)
+                    }}
+                    onFailure={() => {
+                      toast({
+                        title: "Payment Failed",
+                        description: "Please try again or use a different payment method",
+                        variant: "destructive",
+                      })
+                    }}
+                  />
+                )}
 
                 <div className="text-center text-xs text-gray-500">
                   <p>Free cancellation up to 24 hours before your booking</p>

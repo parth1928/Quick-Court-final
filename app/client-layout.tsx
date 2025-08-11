@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Header } from "@/components/header"
+import { Toaster } from "@/components/ui/toaster"
 
 export default function ClientLayout({
   children,
@@ -18,7 +19,12 @@ export default function ClientLayout({
   const isPublicPage = publicPages.includes(pathname)
 
   if (isPublicPage) {
-    return <>{children}</>
+    return (
+      <>
+        {children}
+        <Toaster />
+      </>
+    )
   }
 
   return (
@@ -28,6 +34,7 @@ export default function ClientLayout({
         <Header />
         <main className="flex-1 p-6 bg-gray-50">{children}</main>
       </div>
+      <Toaster />
     </SidebarProvider>
   )
 }

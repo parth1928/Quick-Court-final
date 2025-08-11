@@ -4,7 +4,7 @@ import Venue from '@/models/Venue';
 import { withAuth } from '@/lib/auth';
 
 // GET /api/venues - Get all venues
-export const GET = withAuth(async (request: Request) => {
+export async function GET(request: Request) {
   try {
     await dbConnect();
     
@@ -28,12 +28,40 @@ export const GET = withAuth(async (request: Request) => {
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
-    const venues = await Venue.find(query)
-      .populate('owner', 'name email phone')
-      .populate('courts')
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+    const view = searchParams.get('view');
+
+    let venues;
+    if (view === 'card') {
+      // force only approved for card listings
+      if (!query.approvalStatus) query.approvalStatus = 'approved';
+      venues = await Venue.find(query)
+        .select('_id name shortLocation address description startingPrice rating reviewCount sports amenities images photos status approvalStatus')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .lean();
+      const cards = (venues as any[]).map(v => ({
+        id: v._id.toString(),
+        name: v.name,
+        location: v.shortLocation || (v.address ? `${v.address.city || ''}${v.address.city && v.address.state ? ', ' : ''}${v.address.state || ''}` : ''),
+        sports: v.sports || [],
+        price: v.startingPrice || 0,
+        rating: v.rating || 0,
+        reviews: v.reviewCount || 0,
+        image: (v.images && v.images[0]) || (v.photos && v.photos[0]) || '/placeholder.jpg',
+        amenities: (v.amenities || []).slice(0, 5),
+        description: v.description || ''
+      }));
+      const total = await Venue.countDocuments(query);
+      return NextResponse.json({ venues: cards, pagination: { total, page, pages: Math.ceil(total / limit) } });
+    }
+
+    venues = await Venue.find(query)
+        .populate('owner', 'name email phone')
+        .populate('courts')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
 
     const total = await Venue.countDocuments(query);
 
@@ -52,7 +80,7 @@ export const GET = withAuth(async (request: Request) => {
       { status: 500 }
     );
   }
-});
+}
 
 // POST /api/venues - Create a new venue
 export const POST = withAuth(async (request: Request, user: any) => {
