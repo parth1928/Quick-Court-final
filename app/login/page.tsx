@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+// Removed user type selection; role determined at signup
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [userType, setUserType] = useState("user")
+  // Role no longer selected here; backend determines by account
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -31,8 +31,7 @@ export default function LoginPage() {
         },
         body: JSON.stringify({
           email,
-          password,
-          userType
+          password
         }),
       });
 
@@ -67,16 +66,7 @@ export default function LoginPage() {
     }
   }
 
-  const getUserName = (type: string) => {
-    switch (type) {
-      case "owner":
-        return "Facility Owner"
-      case "user":
-        return "Regular User"
-      default:
-        return "User"
-    }
-  }
+  // Removed getUserName since role selection is gone
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -101,20 +91,7 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="userType" className="text-gray-700">
-                  Sign in as
-                </Label>
-                <Select value={userType} onValueChange={setUserType}>
-                  <SelectTrigger className="border-gray-300">
-                    <SelectValue placeholder="Select user type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="owner">Facility Owner</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* User role selection removed: login only requires email & password */}
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700">

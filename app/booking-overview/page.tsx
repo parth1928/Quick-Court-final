@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatInr } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -177,7 +178,7 @@ export default function BookingOverviewPage() {
         </Card>
         <Card className="border-gray-200">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">${getTotalRevenue()}</div>
+            <div className="text-2xl font-bold text-gray-900">{formatInr(getTotalRevenue())}</div>
             <div className="text-sm text-gray-600">Revenue</div>
           </CardContent>
         </Card>
@@ -275,7 +276,7 @@ export default function BookingOverviewPage() {
                     <TableCell>
                       <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
                     </TableCell>
-                    <TableCell className="font-semibold text-gray-900">${booking.amount}</TableCell>
+                    <TableCell className="font-semibold text-gray-900">{formatInr(booking.amount)}</TableCell>
                     <TableCell className="text-sm text-gray-600">{booking.bookingDate}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatInr } from "@/lib/format"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,8 +17,8 @@ import {
 } from "lucide-react"
 
 interface TournamentRegistration {
-  id: number
-  tournamentId: number
+  id: string
+  tournamentId: string
   tournamentName: string
   sport: string
   venue: string
@@ -43,79 +44,11 @@ interface TournamentRegistration {
   }
 }
 
-const mockRegistrations: TournamentRegistration[] = [
-  {
-    id: 1,
-    tournamentId: 1,
-    tournamentName: "Spring Basketball Championship",
-    sport: "Basketball",
-    venue: "Elite Sports Complex",
-    location: "Downtown NYC",
-    startDate: "2024-03-15",
-    endDate: "2024-03-17",
-    status: "upcoming",
-    registrationDate: "2024-02-01",
-    entryFee: 150,
-    participationType: "team",
-    teamName: "Thunder Bolts",
-    image: "/placeholder.svg?height=200&width=300&text=Basketball+Tournament",
-    nextMatch: {
-      date: "2024-03-15",
-      time: "10:30 AM",
-      opponent: "City Slammers",
-      court: "Court A"
-    }
-  },
-  {
-    id: 2,
-    tournamentId: 2,
-    tournamentName: "Summer Tennis Open",
-    sport: "Tennis",
-    venue: "Premier Tennis Club",
-    location: "Manhattan",
-    startDate: "2024-02-01",
-    endDate: "2024-02-07",
-    status: "completed",
-    registrationDate: "2024-01-15",
-    entryFee: 75,
-    participationType: "individual",
-    position: 3,
-    prize: 200,
-    matchesPlayed: 5,
-    matchesWon: 4,
-    points: 85,
-    image: "/placeholder.svg?height=200&width=300&text=Tennis+Tournament"
-  },
-  {
-    id: 3,
-    tournamentId: 3,
-    tournamentName: "Volleyball League Championship",
-    sport: "Volleyball",
-    venue: "Sports Arena Plus",
-    location: "Brooklyn",
-    startDate: "2024-02-20",
-    endDate: "2024-02-22",
-    status: "ongoing",
-    registrationDate: "2024-01-20",
-    entryFee: 120,
-    participationType: "team",
-    teamName: "Net Ninjas",
-    matchesPlayed: 3,
-    matchesWon: 2,
-    points: 75,
-    image: "/placeholder.svg?height=200&width=300&text=Volleyball+Tournament",
-    nextMatch: {
-      date: "2024-02-21",
-      time: "2:00 PM",
-      opponent: "Spike Masters",
-      court: "Court B"
-    }
-  }
-]
-
 export default function MyTournamentsPage() {
   const [userData, setUserData] = useState<any>(null)
-  const [registrations, setRegistrations] = useState<TournamentRegistration[]>(mockRegistrations)
+  const [registrations, setRegistrations] = useState<TournamentRegistration[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -124,41 +57,36 @@ export default function MyTournamentsPage() {
       router.push("/login")
       return
     }
-
     const parsedUser = JSON.parse(user)
-    if (parsedUser.userType !== "user") {
+    if (parsedUser.role !== "user") {
       router.push("/login")
       return
     }
-
     setUserData(parsedUser)
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/tournaments/mine', { headers: { 'Content-Type': 'application/json' } })
+        if (!res.ok) throw new Error('Failed to load tournaments')
+        const data = await res.json()
+        setRegistrations(data.registrations || [])
+      } catch (e: any) {
+        setError(e.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
   }, [router])
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "upcoming": return "bg-blue-100 text-blue-800"
-      case "ongoing": return "bg-green-100 text-green-800"
-      case "completed": return "bg-gray-100 text-gray-800"
-      case "cancelled": return "bg-red-100 text-red-800"
-      default: return "bg-gray-100 text-gray-800"
-    }
-  }
+  const upcomingTournaments = registrations.filter(r => r.status === 'upcoming')
+  const ongoingTournaments = registrations.filter(r => r.status === 'ongoing')
+  const completedTournaments = registrations.filter(r => r.status === 'completed')
 
-  const getPositionIcon = (position: number) => {
-    switch (position) {
-      case 1: return <Trophy className="h-5 w-5 text-yellow-500" />
-      case 2: return <Medal className="h-5 w-5 text-gray-400" />
-      case 3: return <Award className="h-5 w-5 text-amber-600" />
-      default: return <Star className="h-5 w-5 text-gray-400" />
-    }
-  }
-
-  const upcomingTournaments = registrations.filter(r => r.status === "upcoming")
-  const ongoingTournaments = registrations.filter(r => r.status === "ongoing")
-  const completedTournaments = registrations.filter(r => r.status === "completed")
-
-  if (!userData) {
+  if (!userData || loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+  if (error) {
+    return <div className="flex items-center justify-center min-h-screen text-red-600">{error}</div>
   }
 
   return (
@@ -181,8 +109,6 @@ export default function MyTournamentsPage() {
           </Link>
         </div>
       </div>
-
-      {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -197,7 +123,6 @@ export default function MyTournamentsPage() {
             </div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -211,7 +136,6 @@ export default function MyTournamentsPage() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -225,7 +149,6 @@ export default function MyTournamentsPage() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -234,15 +157,12 @@ export default function MyTournamentsPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Winnings</p>
-                <p className="text-xl font-bold text-yellow-600">
-                  ${completedTournaments.reduce((sum, t) => sum + (t.prize || 0), 0)}
-                </p>
+                <p className="text-xl font-bold text-yellow-600">₹{completedTournaments.reduce((sum, t) => sum + (t.prize || 0), 0)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
       <Tabs defaultValue="all" className="space-y-4">
         <TabsList>
           <TabsTrigger value="all">All Tournaments</TabsTrigger>
@@ -250,62 +170,35 @@ export default function MyTournamentsPage() {
           <TabsTrigger value="ongoing">Ongoing ({ongoingTournaments.length})</TabsTrigger>
           <TabsTrigger value="completed">Completed ({completedTournaments.length})</TabsTrigger>
         </TabsList>
-
         <TabsContent value="all" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {registrations.map((registration) => (
-              <TournamentCard key={registration.id} registration={registration} />
-            ))}
+            {registrations.map(r => <TournamentCard key={r.id} registration={r} />)}
           </div>
+          {registrations.length === 0 && <EmptyState title="No registrations" description="You have not registered for any tournaments yet." actionText="Browse Tournaments" actionHref="/tournaments" />}
         </TabsContent>
-
         <TabsContent value="upcoming" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {upcomingTournaments.map((registration) => (
-              <TournamentCard key={registration.id} registration={registration} />
-            ))}
+            {upcomingTournaments.map(r => <TournamentCard key={r.id} registration={r} />)}
           </div>
-          {upcomingTournaments.length === 0 && (
-            <EmptyState 
-              title="No upcoming tournaments"
-              description="You don't have any upcoming tournaments. Browse available tournaments to register."
-              actionText="Browse Tournaments"
-              actionHref="/tournaments"
-            />
-          )}
+          {upcomingTournaments.length === 0 && <EmptyState title="No upcoming tournaments" description="You don't have any upcoming tournaments." actionText="Browse Tournaments" actionHref="/tournaments" />}
         </TabsContent>
-
         <TabsContent value="ongoing" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {ongoingTournaments.map((registration) => (
-              <TournamentCard key={registration.id} registration={registration} />
-            ))}
+            {ongoingTournaments.map(r => <TournamentCard key={r.id} registration={r} />)}
           </div>
-          {ongoingTournaments.length === 0 && (
-            <EmptyState 
-              title="No ongoing tournaments"
-              description="You don't have any active tournaments at the moment."
-            />
-          )}
+          {ongoingTournaments.length === 0 && <EmptyState title="No ongoing tournaments" description="You don't have any active tournaments at the moment." />}
         </TabsContent>
-
         <TabsContent value="completed" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {completedTournaments.map((registration) => (
-              <TournamentCard key={registration.id} registration={registration} />
-            ))}
+            {completedTournaments.map(r => <TournamentCard key={r.id} registration={r} />)}
           </div>
-          {completedTournaments.length === 0 && (
-            <EmptyState 
-              title="No completed tournaments"
-              description="You haven't completed any tournaments yet."
-            />
-          )}
+          {completedTournaments.length === 0 && <EmptyState title="No completed tournaments" description="You haven't completed any tournaments yet." />}
         </TabsContent>
       </Tabs>
     </div>
   )
 }
+
 
 function TournamentCard({ registration }: { registration: TournamentRegistration }) {
   const getStatusColor = (status: string) => {
@@ -389,13 +282,13 @@ function TournamentCard({ registration }: { registration: TournamentRegistration
           
           <div className="flex items-center justify-between">
             <span>Entry Fee:</span>
-            <span className="font-medium text-green-600">${registration.entryFee}</span>
+            <span className="font-medium text-green-600">{formatInr(registration.entryFee)}</span>
           </div>
 
           {registration.prize && (
             <div className="flex items-center justify-between">
               <span>Prize Won:</span>
-              <span className="font-bold text-yellow-600">${registration.prize}</span>
+              <span className="font-bold text-yellow-600">{registration.prize ? formatInr(registration.prize) : null}</span>
             </div>
           )}
         </div>

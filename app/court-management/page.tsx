@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { formatInr } from "@/lib/format"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,7 @@ const existingCourts = [
     id: 1,
     name: "Basketball Court A",
     sport: "Basketball",
-    pricing: 25,
+  pricing: 700,
     operatingHours: "6:00 AM - 11:00 PM",
     status: "Active",
   },
@@ -32,7 +33,7 @@ const existingCourts = [
     id: 2,
     name: "Tennis Court 1",
     sport: "Tennis",
-    pricing: 30,
+  pricing: 850,
     operatingHours: "7:00 AM - 10:00 PM",
     status: "Active",
   },
@@ -40,7 +41,7 @@ const existingCourts = [
     id: 3,
     name: "Volleyball Court",
     sport: "Volleyball",
-    pricing: 20,
+  pricing: 600,
     operatingHours: "8:00 AM - 9:00 PM",
     status: "Maintenance",
   },
@@ -190,7 +191,7 @@ export default function CourtManagementPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pricing" className="text-gray-700">
-                  Pricing per Hour ($)
+                  Pricing per Hour (₹)
                 </Label>
                 <Input
                   id="pricing"
@@ -259,7 +260,7 @@ export default function CourtManagementPage() {
                     <Badge variant="outline" className="border-gray-300 text-gray-700">
                       {court.sport}
                     </Badge>
-                    <span className="text-sm text-gray-600">${court.pricing}/hour</span>
+                    <span className="text-sm text-gray-600">{formatInr(court.pricing)}/hour</span>
                     <span className="text-sm text-gray-600">{court.operatingHours}</span>
                     <Badge
                       variant={court.status === "Active" ? "default" : "secondary"}
@@ -320,7 +321,7 @@ export default function CourtManagementPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="editPricing" className="text-gray-700">
-                            Pricing per Hour ($)
+                            Pricing per Hour (₹)
                           </Label>
                           <Input
                             id="editPricing"

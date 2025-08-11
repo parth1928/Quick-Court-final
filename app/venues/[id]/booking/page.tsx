@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { formatInr } from "@/lib/format"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,11 +14,11 @@ import { CalendarDays, Clock, MapPin, CreditCard } from "lucide-react"
 import { DurationSlider } from "@/components/ui/enhanced-slider"
 
 const courts = [
-  { id: 1, name: "Basketball Court A", sport: "Basketball", price: 25 },
-  { id: 2, name: "Basketball Court B", sport: "Basketball", price: 25 },
-  { id: 3, name: "Tennis Court 1", sport: "Tennis", price: 30 },
-  { id: 4, name: "Tennis Court 2", sport: "Tennis", price: 30 },
-  { id: 5, name: "Volleyball Court", sport: "Volleyball", price: 20 },
+  { id: 1, name: "Basketball Court A", sport: "Basketball", price: 700 },
+  { id: 2, name: "Basketball Court B", sport: "Basketball", price: 700 },
+  { id: 3, name: "Tennis Court 1", sport: "Tennis", price: 850 },
+  { id: 4, name: "Tennis Court 2", sport: "Tennis", price: 850 },
+  { id: 5, name: "Volleyball Court", sport: "Volleyball", price: 600 },
 ]
 
 const timeSlots = [
@@ -61,7 +62,9 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+
+  <Header />
+
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
@@ -105,7 +108,7 @@ export default function BookingPage() {
                           <span>{court.name}</span>
                           <div className="flex items-center space-x-2 ml-4">
                             <Badge variant="secondary">{court.sport}</Badge>
-                            <span className="font-semibold">${court.price}/hr</span>
+                            <span className="font-semibold">{formatInr(court.price)}/hr</span>
                           </div>
                         </div>
                       </SelectItem>
@@ -224,7 +227,7 @@ export default function BookingPage() {
                         </div>
                         <div className="flex justify-between">
                           <span>Rate:</span>
-                          <span>${selectedCourtData.price}/hour</span>
+                          <span>{formatInr(selectedCourtData.price)}/hour</span>
                         </div>
                       </div>
                     </div>
@@ -268,16 +271,16 @@ export default function BookingPage() {
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>Subtotal ({totalHours} hours):</span>
-                            <span>${subtotal.toFixed(2)}</span>
+                            <span>{formatInr(subtotal)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Tax (8%):</span>
-                            <span>${tax.toFixed(2)}</span>
+                            <span>{formatInr(tax)}</span>
                           </div>
                           <Separator />
                           <div className="flex justify-between font-semibold">
                             <span>Total:</span>
-                            <span>${total.toFixed(2)}</span>
+                            <span>{formatInr(total)}</span>
                           </div>
                         </div>
                       </>

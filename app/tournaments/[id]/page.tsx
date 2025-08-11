@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatInr } from "@/lib/format"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -154,8 +155,8 @@ export default function TournamentDetailsPage() {
       return
     }
 
-    const parsedUser = JSON.parse(user)
-    if (parsedUser.userType !== "user") {
+  const parsedUser = JSON.parse(user)
+  if (parsedUser.role !== "user") {
       router.push("/login")
       return
     }
@@ -481,7 +482,7 @@ export default function TournamentDetailsPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Entry Fee:</span>
-                  <span className="text-lg font-bold text-green-600">${tournament.entryFee}</span>
+                  <span className="text-lg font-bold text-green-600">{formatInr(tournament.entryFee)}</span>
                 </div>
               </div>
 
@@ -500,7 +501,7 @@ export default function TournamentDetailsPage() {
                   {isRegistrationOpen() ? (
                     <Link href={`/tournaments/${tournament.id}/register`}>
                       <Button className="w-full">
-                        Register Now - ${tournament.entryFee}
+                        Register Now - {formatInr(tournament.entryFee)}
                       </Button>
                     </Link>
                   ) : (
@@ -561,7 +562,7 @@ export default function TournamentDetailsPage() {
                 <DollarSign className="h-4 w-4 text-gray-500" />
                 <div>
                   <p className="text-sm font-medium">Prize Pool</p>
-                  <p className="text-xs text-gray-600">${tournament.prizePool} total prizes</p>
+                  <p className="text-xs text-gray-600">{formatInr(tournament.prizePool)} total prizes</p>
                 </div>
               </div>
             </CardContent>

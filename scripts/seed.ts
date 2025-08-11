@@ -6,13 +6,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
-import dbConnect from '../lib/db/connect.js';
-import User from '../models/User.js';
-import Sport from '../models/Sport.js';
-import Venue from '../models/Venue.js';
-import Court from '../models/Court.js';
-import Booking from '../models/Booking.js';
-import Review from '../models/Review.js';
+import dbConnect from '../lib/db/connect';
+import User from '../models/User';
+import Sport from '../models/Sport';
+import Venue from '../models/Venue';
+import Court from '../models/Court';
+import Booking from '../models/Booking';
+import Review from '../models/Review';
 
 async function seed() {
   try {

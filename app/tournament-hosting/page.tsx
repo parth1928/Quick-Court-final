@@ -118,8 +118,8 @@ export default function TournamentHostingPage() {
       return
     }
 
-    const parsedUser = JSON.parse(user)
-    if (parsedUser.userType !== "facility-owner") {
+  const parsedUser = JSON.parse(user)
+  if (parsedUser.role !== "owner") {
       router.push("/login")
       return
     }
