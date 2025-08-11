@@ -5,15 +5,40 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/login", "/signup", "/forgot-password", "/welcome"]
+  const publicRoutes = ["/", "/login", "/signup", "/forgot-password", "/welcome"]
 
   // Check if the current path is a public route
   if (publicRoutes.includes(pathname)) {
     return NextResponse.next()
   }
 
-  // For protected routes, we'll let the client-side handle authentication
-  // since we can't access localStorage in middleware
+  // Get token from cookie (set by login/register routes)
+  const authToken = request.cookies.get("authToken")?.value
+  const user = authToken ? JSON.parse(Buffer.from(authToken.split(".")[1], 'base64url').toString()) : null
+
+  // If there's no token, redirect to login
+  if (!authToken) {
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
+
+  // Handle routing based on user role
+  if (user) {
+    // Admin routes
+    if (pathname.startsWith("/admin") && user.role !== "admin") {
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+
+    // Facility owner routes
+    if (pathname.startsWith("/facility") && user.role !== "owner") {
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+
+    // User routes
+    if (pathname.startsWith("/user-home") && user.role !== "user") {
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+  }
+
   return NextResponse.next()
 }
 

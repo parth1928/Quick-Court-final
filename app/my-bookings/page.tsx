@@ -42,7 +42,7 @@ export default function MyBookingsPage() {
     }
 
     const parsedUser = JSON.parse(user)
-    if (parsedUser.userType !== "user") {
+  if (parsedUser.role !== "user") {
       router.push("/login")
       return
     }

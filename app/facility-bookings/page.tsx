@@ -52,7 +52,7 @@ export default function FacilityBookingsPage() {
     }
 
     const parsedUser = JSON.parse(user)
-    if (parsedUser.userType !== "facility-owner") {
+  if (parsedUser.role !== "owner") {
       router.push("/login")
       return
     }
