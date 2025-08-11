@@ -353,15 +353,15 @@ export default function LandingPage() {
             <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">
               <div className="flex items-center">
                 <CheckCircle className="h-4 w-4 text-gray-900 mr-2" />
-                <span></span>
+                <span>Free 30-day trial</span>
               </div>
               <div className="flex items-center">
                 <CheckCircle className="h-4 w-4 text-gray-900 mr-2" />
-                <span></span>
+                <span>No credit card required</span>
               </div>
               <div className="flex items-center">
                 <CheckCircle className="h-4 w-4 text-gray-900 mr-2" />
-                <span></span>
+                <span>Cancel anytime</span>
               </div>
             </div>
           </div>
