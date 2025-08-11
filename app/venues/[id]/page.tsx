@@ -14,7 +14,6 @@ const venue = {
   name: "Elite Sports Complex",
   location: "123 Sports Avenue, Downtown NYC, NY 10001",
   rating: 4.8,
-  reviews: 124,
   description:
     "Elite Sports Complex is a premier sports facility offering state-of-the-art courts and amenities. Perfect for both casual players and serious athletes, our facility features professional-grade equipment and excellent customer service.",
   images: [
@@ -84,7 +83,7 @@ export default function VenueDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header isAuthenticated={true} />
+      <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
@@ -106,7 +105,7 @@ export default function VenueDetailPage() {
                 <div className="flex items-center">
                   <Star className="h-5 w-5 text-yellow-400 fill-current" />
                   <span className="ml-1 font-semibold">{venue.rating}</span>
-                  <span className="ml-1 text-gray-500">({venue.reviews} reviews)</span>
+                  <span className="ml-1 text-gray-500">({venue.reviews.length} reviews)</span>
                 </div>
                 <div className="flex items-center text-gray-600">
                   <MapPin className="h-4 w-4 mr-1" />
@@ -153,6 +152,7 @@ export default function VenueDetailPage() {
                         key={index}
                         className={`w-2 h-2 rounded-full ${index === currentImageIndex ? "bg-white" : "bg-white/50"}`}
                         onClick={() => setCurrentImageIndex(index)}
+                        aria-label={`View image ${index + 1}`}
                       />
                     ))}
                   </div>

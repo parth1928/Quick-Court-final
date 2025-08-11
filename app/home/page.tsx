@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, MapPin, Star, Clock } from "lucide-react"
+import { ScrollXCarousel, ScrollXCarouselContainer, ScrollXCarouselProgress, ScrollXCarouselWrap } from "@/components/ui/scroll-x-carousel"
+import { CardHoverReveal, CardHoverRevealContent, CardHoverRevealMain } from "@/components/ui/reveal-on-hover"
 
 const popularVenues = [
   {
@@ -81,6 +83,45 @@ const popularSports = [
   },
 ]
 
+const featuredFacilities = [
+  {
+    id: 'facility-1',
+    title: 'Elite Basketball Courts',
+    description: 'Professional-grade basketball courts with regulation dimensions and premium flooring.',
+    services: ['5v5 games', 'Training', 'Tournaments'],
+    type: 'Premium',
+    price: '$35/hour',
+    imageUrl: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=2490&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    id: 'facility-2',
+    title: 'Championship Tennis Courts',
+    description: 'Premium tennis courts with professional surface and advanced lighting systems.',
+    services: ['Singles', 'Doubles', 'Coaching', 'Leagues'],
+    type: 'Professional',
+    price: '$45/hour',
+    imageUrl: 'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?q=80&w=2489&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    id: 'facility-3',
+    title: 'Multi-Sport Arena',
+    description: 'Versatile indoor arena supporting volleyball, badminton, and futsal with premium amenities.',
+    services: ['Volleyball', 'Badminton', 'Futsal', 'Events'],
+    type: 'Multi-Sport',
+    price: '$30/hour',
+    imageUrl: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2490&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    id: 'facility-4',
+    title: 'Olympic Swimming Pool',
+    description: '50-meter Olympic standard swimming pool with advanced filtration and heating systems.',
+    services: ['Lap swimming', 'Training', 'Competitions', 'Lessons'],
+    type: 'Aquatic',
+    price: '$25/hour',
+    imageUrl: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?q=80&w=2490&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+]
+
 function CarouselSection({ title, children }: { title: string; children: React.ReactNode }) {
   const [scrollPosition, setScrollPosition] = useState(0)
 
@@ -123,7 +164,7 @@ function CarouselSection({ title, children }: { title: string; children: React.R
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header isAuthenticated={true} />
+      <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
@@ -174,6 +215,89 @@ export default function HomePage() {
               <div className="text-sm text-gray-600">Avg Rating</div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Featured Facilities Carousel */}
+        <div className="mb-12">
+          <ScrollXCarousel className="h-[120vh]">
+            <ScrollXCarouselContainer className="h-dvh place-content-center flex flex-col gap-6 py-8">
+              {/* Gradient Overlays */}
+              <div className="pointer-events-none w-[8vw] h-[103%] absolute inset-[0_auto_0_0] z-10 bg-[linear-gradient(90deg,_rgb(249_250_251)_35%,_transparent)]" />
+              <div className="pointer-events-none bg-[linear-gradient(270deg,_rgb(249_250_251)_35%,_transparent)] w-[10vw] h-[103%] absolute inset-[0_0_0_auto] z-10" />
+
+              {/* Section Header */}
+              <div className="text-center mb-6 px-8">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Featured Premium Facilities</h2>
+                <p className="text-gray-600 max-w-2xl mx-auto">
+                  Discover our top-rated sports facilities with professional equipment and premium amenities
+                </p>
+              </div>
+
+              <ScrollXCarouselWrap className="flex space-x-6 [&>*:first-child]:ml-8">
+                {featuredFacilities.map((facility) => (
+                  <CardHoverReveal
+                    key={facility.id}
+                    className="min-w-[85vw] md:min-w-[45vw] xl:min-w-[35vw] shadow-lg border rounded-xl bg-white"
+                  >
+                    <CardHoverRevealMain>
+                      <img
+                        alt={facility.title}
+                        src={facility.imageUrl}
+                        className="size-full aspect-[4/3] object-cover rounded-xl"
+                      />
+                    </CardHoverRevealMain>
+                    <CardHoverRevealContent className="space-y-3 rounded-xl bg-[rgba(0,0,0,.8)] backdrop-blur-xl p-5">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Badge className="capitalize rounded-full bg-blue-600 hover:bg-blue-700 text-white">
+                            {facility.type}
+                          </Badge>
+                          <span className="text-white font-bold text-lg">{facility.price}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-sm text-white/80">Available Services</h3>
+                        <div className="flex flex-wrap gap-1.5">
+                          {facility.services.map((service) => (
+                            <Badge
+                              key={service}
+                              className="capitalize rounded-full bg-white/20 text-white border-white/30 hover:bg-white/30 text-xs"
+                              variant={'outline'}
+                            >
+                              {service}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h3 className="text-white font-semibold text-lg">
+                          {facility.title}
+                        </h3>
+                        <p className="text-white/90 text-sm leading-relaxed">{facility.description}</p>
+                      </div>
+                      
+                      <div className="pt-2">
+                        <Button 
+                          size="sm" 
+                          className="w-full bg-white text-black hover:bg-gray-100"
+                        >
+                          Book Now
+                        </Button>
+                      </div>
+                    </CardHoverRevealContent>
+                  </CardHoverReveal>
+                ))}
+              </ScrollXCarouselWrap>
+              
+              {/* Progress Bar */}
+              <ScrollXCarouselProgress
+                className="bg-gray-200 mx-8 h-1.5 rounded-full overflow-hidden"
+                progressStyle="size-full bg-blue-600 rounded-full"
+              />
+            </ScrollXCarouselContainer>
+          </ScrollXCarousel>
         </div>
 
         {/* Popular Venues Carousel */}

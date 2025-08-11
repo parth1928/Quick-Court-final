@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
+import { PriceRangeSlider, RatingSlider } from "@/components/ui/enhanced-slider"
 import { MapPin, Star, Filter, ChevronLeft, ChevronRight } from "lucide-react"
 
 const venues = [
@@ -85,7 +85,7 @@ export default function VenuesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSport, setSelectedSport] = useState("all")
   const [priceRange, setPriceRange] = useState([0, 50])
-  const [selectedRating, setSelectedRating] = useState("all")
+  const [ratingRange, setRatingRange] = useState([0])
   const [currentPage, setCurrentPage] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
 
@@ -99,7 +99,7 @@ export default function VenuesPage() {
     const matchesSport =
       selectedSport === "all" || venue.sports.some((sport) => sport.toLowerCase() === selectedSport.toLowerCase())
     const matchesPrice = venue.price >= priceRange[0] && venue.price <= priceRange[1]
-    const matchesRating = selectedRating === "all" || venue.rating >= Number.parseFloat(selectedRating)
+    const matchesRating = venue.rating >= ratingRange[0]
 
     return matchesSearch && matchesSport && matchesPrice && matchesRating
   })
@@ -108,7 +108,7 @@ export default function VenuesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header isAuthenticated={true} />
+      <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -159,13 +159,15 @@ export default function VenuesPage() {
 
             <div className="space-y-2">
               <Label>Price Range ($/hour)</Label>
-              <div className="px-2">
-                <Slider value={priceRange} onValueChange={setPriceRange} max={50} min={0} step={5} className="w-full" />
-                <div className="flex justify-between text-sm text-gray-500 mt-1">
-                  <span>${priceRange[0]}</span>
-                  <span>${priceRange[1]}</span>
-                </div>
-              </div>
+              <PriceRangeSlider 
+                value={priceRange} 
+                onValueChange={setPriceRange} 
+                max={50} 
+                min={0} 
+                step={5} 
+                currency="$"
+                className="px-2"
+              />
             </div>
 
             <div className="space-y-2">
@@ -185,17 +187,12 @@ export default function VenuesPage() {
 
             <div className="space-y-2">
               <Label>Minimum Rating</Label>
-              <Select value={selectedRating} onValueChange={setSelectedRating}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any Rating" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any Rating</SelectItem>
-                  <SelectItem value="4.5">4.5+ Stars</SelectItem>
-                  <SelectItem value="4.0">4.0+ Stars</SelectItem>
-                  <SelectItem value="3.5">3.5+ Stars</SelectItem>
-                </SelectContent>
-              </Select>
+              <RatingSlider 
+                value={ratingRange} 
+                onValueChange={setRatingRange} 
+                max={5}
+                className="px-2"
+              />
             </div>
           </div>
         </div>
