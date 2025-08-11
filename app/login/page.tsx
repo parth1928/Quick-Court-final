@@ -72,10 +72,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="flex w-full max-w-4xl bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Left side: Photo */}
-        <div className="hidden md:flex md:w-1/2 bg-gray-100 items-center justify-center">
-          <img src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754908993~exp=1754912593~hmac=50369d3d421502b36127f15897d3a3cbfa5e32ad16b54a46046fb458e0a6b157&w=360%20360w"
+        <div className="hidden md:flex md:w-1/2 bg-gray-100 p-2">
+          <img
+            src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754908993~exp=1754912593~hmac=50369d3d421502b36127f15897d3a3cbfa5e32ad16b54a46046fb458e0a6b157&w=360%20360w"
             alt="Login illustration"
-            className="object-cover rounded-lg w-full h-96 max-h-full"
+            className="object-cover w-full h-full rounded-xl"
+            style={{ minHeight: '400px', maxHeight: '600px' }}
           />
         </div>
         {/* Right side: Login Form */}
