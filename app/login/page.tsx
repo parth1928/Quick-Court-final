@@ -34,36 +34,54 @@ export default function LoginPage() {
         },
         body: JSON.stringify({
           email,
-          password
+          password,
+          step: 'verify_password' // Use direct login to bypass 2FA for existing UI
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to login');
+        console.error('Login failed:', data);
+        // Handle specific error cases
+        if (response.status === 429) {
+          alert('Too many login attempts. Please try again later.');
+        } else {
+          alert(data.error || 'Login failed. Please check your credentials.');
+        }
+        return;
       }
 
-  // Store user data locally (token is already set in HTTP-only cookie by API)
-  localStorage.setItem("user", JSON.stringify(data.user))
+      // Check if this is a 2FA flow response
+      if (data.step === 'verify_otp') {
+        alert('2FA is required but not implemented in this UI. Please use the enhanced login page.');
+        return;
+      }
 
-      // Redirect based on user type
-      switch (data.user.role) {
-        case "admin":
-          router.push("/admin-dashboard")
-          break
-        case "owner":
-          router.push("/facility-dashboard")
-          break
-        case "user":
-          router.push("/user-home")
-          break
-        default:
-          router.push("/")
+      // Store user data locally (token is already set in HTTP-only cookie by API)
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // Redirect based on user type
+        switch (data.user.role) {
+          case "admin":
+            router.push("/admin-dashboard")
+            break
+          case "owner":
+            router.push("/facility-dashboard")
+            break
+          case "user":
+            router.push("/user-home")
+            break
+          default:
+            router.push("/")
+        }
+      } else {
+        alert('Login response invalid. Please try again.');
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      // You might want to show an error message to the user here
+      alert('Network error. Please check your connection and try again.');
     } finally {
       setIsLoading(false)
     }
@@ -81,8 +99,7 @@ export default function LoginPage() {
           <img
             src="/woman.jpg"
             alt="Login illustration"
-            className="object-cover object-center w-full h-full rounded-xl"
-            style={{ minHeight: '400px', maxHeight: '600px' }}
+            className="object-cover object-center w-full h-full rounded-xl min-h-[400px] max-h-[600px]"
           />
         </div>
         {/* Right side: Login Form */}
@@ -182,6 +199,7 @@ export default function LoginPage() {
                       name="remember-me"
                       type="checkbox"
                       className="h-4 w-4 text-gray-900 focus:ring-gray-500 border-gray-300 rounded"
+                      aria-label="Remember me for future logins"
                     />
                     <Label htmlFor="remember-me" className="ml-2 text-sm text-gray-600">
                       Remember me
