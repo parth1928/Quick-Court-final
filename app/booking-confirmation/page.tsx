@@ -60,7 +60,16 @@ export default function BookingConfirmationPage() {
         const data = await response.json()
         setBookingData(data.booking)
       } else {
-        console.error('Failed to fetch booking details')
+        const errorText = await response.text()
+        console.error('Failed to fetch booking details:', response.status, errorText)
+        
+        // Try to parse error response
+        try {
+          const errorData = JSON.parse(errorText)
+          console.error('API Error:', errorData)
+        } catch {
+          console.error('Raw error response:', errorText)
+        }
       }
     } catch (error) {
       console.error('Error fetching booking:', error)

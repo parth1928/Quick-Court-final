@@ -107,10 +107,19 @@ export async function GET(request: NextRequest) {
 
 // POST /api/bookings - Create a new booking (simplified for demo)
 export async function POST(request: NextRequest) {
+  // Define fallback court IDs at function scope
+  const FALLBACK_COURT_IDS = [
+    "507f1f77bcf86cd799439021", // Basketball Court A
+    "507f1f77bcf86cd799439022", // Tennis Court B  
+    "507f1f77bcf86cd799439023"  // Volleyball Court
+  ];
+  
+  let bookingData: any;
+  
   try {
     await connectDB();
     
-    const bookingData = await request.json();
+    bookingData = await request.json();
     console.log('📝 POST /api/bookings called with data:', bookingData);
     
     // Validate required fields
@@ -240,7 +249,7 @@ export async function POST(request: NextRequest) {
     const startTime = new Date(bookingData.startTime);
     const endTime = new Date(bookingData.endTime);
     
-    const isFallbackCourt = FALLBACK_COURT_IDS.includes(bookingData.court);
+  const isFallbackCourt = FALLBACK_COURT_IDS.includes(bookingData.court);
     
     if (!isFallbackCourt) {
       console.log('⏰ Checking for overlapping bookings between:', startTime, 'and', endTime);
@@ -295,8 +304,6 @@ export async function POST(request: NextRequest) {
     
     // Create the booking with special handling for fallback courts
     console.log('🚀 Creating booking with data:', bookingData);
-    
-    const isFallbackCourt = FALLBACK_COURT_IDS.includes(bookingData.court);
     
     let booking;
     

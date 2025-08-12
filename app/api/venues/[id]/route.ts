@@ -4,14 +4,15 @@ import Venue from '@/models/Venue';
 import Review from '@/models/Review';
 
 // GET /api/venues/:id - public venue detail (no auth needed for viewing)
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, context: { params: { id: string } }) {
+  const { params } = context;
   try {
     await dbConnect();
-  const venueDoc = await Venue.findById(params.id).lean();
-  if (!venueDoc) {
+    const venueDoc = await Venue.findById(params.id).lean();
+    if (!venueDoc) {
       return NextResponse.json({ error: 'Venue not found' }, { status: 404 });
     }
-  const venue: any = venueDoc as any;
+    const venue: any = venueDoc as any;
 
     // Pull latest 5 reviews (if Review model present)
   const reviews: any[] = await Review.find({ venue: params.id })
