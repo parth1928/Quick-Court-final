@@ -22,8 +22,23 @@ const FacilitySchema = new Schema({
   }],
   status: {
     type: String,
-    enum: ['Active', 'Inactive', 'Maintenance'],
-    default: 'Active'
+    enum: ['pending', 'approved', 'rejected', 'Active', 'Inactive', 'Maintenance'],
+    default: 'pending'
+  },
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  approvedAt: {
+    type: Date
+  },
+  rejectionReason: {
+    type: String
   },
   description: {
     type: String,

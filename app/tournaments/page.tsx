@@ -14,6 +14,7 @@ import PaySimulator from "@/components/pay-simulator"
 import { toast } from "@/components/ui/use-toast"
 
 interface Tournament {
+  description?: string;
   _id: string
   name: string
   sport: string
@@ -29,7 +30,7 @@ interface Tournament {
   prizePool: number
   status: "draft" | "submitted" | "approved" | "open" | "closed" | "ongoing" | "completed" | "cancelled"
   difficulty: "Beginner" | "Intermediate" | "Advanced" | "Professional"
-  description: string
+  // import PaySimulator from "@/components/pay-simulator"
   organizer: string
   participants: Array<{
     _id: string
@@ -42,184 +43,102 @@ interface Tournament {
 }
 
 export default function TournamentsPage() {
-  const [userData, setUserData] = useState<any>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
-  const [tournaments, setTournaments] = useState<Tournament[]>([])
-  const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedSport, setSelectedSport] = useState<string>("all")
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all")
-  const [selectedStatus, setSelectedStatus] = useState<string>("all")
-  const router = useRouter()
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSport, setSelectedSport] = useState("all");
+  const [selectedDifficulty, setSelectedDifficulty] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    const user = localStorage.getItem("user")
-    const token = localStorage.getItem("authToken")
-    
-    if (user && token) {
-      try {
-        const parsedUser = JSON.parse(user)
-        setUserData(parsedUser)
-        setIsAuthenticated(true)
-      } catch (e) {
-        console.error('Error parsing user data:', e)
-        setIsAuthenticated(false)
-      }
+    // Simulate authentication check
+    const user = localStorage.getItem("user");
+    if (user) {
+      setIsAuthenticated(true);
+      setUserData(JSON.parse(user));
     } else {
-      setIsAuthenticated(false)
+      setIsAuthenticated(false);
+      setUserData(null);
     }
-  }, [router])
+  }, []);
 
-  // Fetch tournaments
   useEffect(() => {
     const fetchTournaments = async () => {
+      setLoading(true);
       try {
-        setLoading(true)
-        
-        // Fetch tournaments without authentication for public browsing
-        const response = await fetch('/api/tournaments', {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`
-          throw new Error(errorMessage)
-        }
-        
-        const data = await response.json()
-        
-        if (!data.tournaments) {
-          console.warn('No tournaments array in response:', data)
-          setTournaments([])
-          setFilteredTournaments([])
-          return
-        }
-        
+        const response = await fetch("/api/tournaments");
+        if (!response.ok) throw new Error("Failed to fetch tournaments");
+        const data = await response.json();
         const tournamentsWithCounts = data.tournaments.map((tournament: any) => ({
           ...tournament,
           currentParticipants: tournament.participants?.length || 0,
           hasJoined: isAuthenticated && userData ? tournament.participants?.some((p: any) => {
-            return p.user === userData._id || p.user === userData.userId
+            return p.user === userData._id || p.user === userData.userId;
           }) : false
-        }))
-        
-        setTournaments(tournamentsWithCounts)
-        setFilteredTournaments(tournamentsWithCounts)
+        }));
+        setTournaments(tournamentsWithCounts);
+        setFilteredTournaments(tournamentsWithCounts);
+        setError(null);
       } catch (err: any) {
-        console.error('Error fetching tournaments:', err)
-        setError(err.message)
-        setTournaments([])
-        setFilteredTournaments([])
+        setError(err.message);
+        setTournaments([]);
+        setFilteredTournaments([]);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-
-    fetchTournaments()
-  }, [isAuthenticated, userData])
+    };
+    fetchTournaments();
+  }, [isAuthenticated, userData]);
 
   useEffect(() => {
-    let filtered = tournaments
-
+    let filtered = tournaments;
     if (searchTerm) {
       filtered = filtered.filter(tournament =>
         tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         tournament.sport.toLowerCase().includes(searchTerm.toLowerCase()) ||
         tournament.venue.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      );
     }
-
     if (selectedSport !== "all") {
-      filtered = filtered.filter(tournament => tournament.sport === selectedSport)
+      filtered = filtered.filter(tournament => tournament.sport === selectedSport);
     }
-
     if (selectedDifficulty !== "all") {
-      filtered = filtered.filter(tournament => tournament.difficulty === selectedDifficulty)
+      filtered = filtered.filter(tournament => tournament.difficulty === selectedDifficulty);
     }
-
     if (selectedStatus !== "all") {
-      filtered = filtered.filter(tournament => tournament.status === selectedStatus)
+      filtered = filtered.filter(tournament => tournament.status === selectedStatus);
     }
-
-    setFilteredTournaments(filtered)
-  }, [tournaments, searchTerm, selectedSport, selectedDifficulty, selectedStatus])
+    setFilteredTournaments(filtered);
+  }, [tournaments, searchTerm, selectedSport, selectedDifficulty, selectedStatus]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "open": return "bg-green-100 text-green-800"
-      case "closed": return "bg-red-100 text-red-800"
-      case "ongoing": return "bg-blue-100 text-blue-800"
-      case "completed": return "bg-gray-100 text-gray-800"
-      default: return "bg-gray-100 text-gray-800"
+      case "open": return "bg-green-100 text-green-800";
+      case "closed": return "bg-red-100 text-red-800";
+      case "ongoing": return "bg-blue-100 text-blue-800";
+      case "completed": return "bg-gray-100 text-gray-800";
+      default: return "bg-gray-100 text-gray-800";
     }
-  }
+  };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "Beginner": return "bg-green-100 text-green-800"
-      case "Intermediate": return "bg-yellow-100 text-yellow-800"
-      case "Advanced": return "bg-orange-100 text-orange-800"
-      case "Professional": return "bg-red-100 text-red-800"
-      default: return "bg-gray-100 text-gray-800"
+      case "Beginner": return "bg-green-100 text-green-800";
+      case "Intermediate": return "bg-yellow-100 text-yellow-800";
+      case "Advanced": return "bg-orange-100 text-orange-800";
+      case "Professional": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
     }
-  }
-
-  const handleJoinTournament = async (tournamentId: string) => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Login Required",
-        description: "Please log in to join tournaments.",
-        variant: "destructive"
-      })
-      router.push('/login')
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/tournaments/${tournamentId}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include' // Use cookie-based authentication
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to join tournament')
-      }
-
-      const result = await response.json()
-      
-      // Update local state
-      setTournaments(prev => prev.map(t => 
-        t._id === tournamentId 
-          ? { ...t, currentParticipants: result.currentParticipants, hasJoined: true }
-          : t
-      ))
-
-      toast({
-        title: "Success!",
-        description: "You have successfully joined the tournament.",
-      })
-    } catch (err: any) {
-      console.error('Error joining tournament:', err)
-      toast({
-        title: "Error",
-        description: err.message,
-        variant: "destructive"
-      })
-    }
-  }
+  };
 
   const getAvailableSpots = (tournament: Tournament) => {
-    return tournament.maxParticipants - tournament.currentParticipants
-  }
+    return tournament.maxParticipants - tournament.currentParticipants;
+  };
 
   if (loading) {
     return (
@@ -229,7 +148,7 @@ export default function TournamentsPage() {
           <p className="text-gray-600">Loading tournaments...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -240,7 +159,7 @@ export default function TournamentsPage() {
           <Button onClick={() => window.location.reload()}>Try Again</Button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -444,58 +363,9 @@ export default function TournamentsPage() {
                     </Link>
                     {tournament.status === "open" && getAvailableSpots(tournament) > 0 && (
                       <div className="flex-1">
-                        <PaySimulator
-                          amount={tournament.entryFee}
-                          descriptor={`Tournament Registration - ${tournament.name}`}
-                          buttonLabel="Register & Pay"
-                          onSuccess={(tx) => {
-                            // Handle successful tournament registration
-                            console.log("Tournament registration successful:", tx)
-                            
-                            // Store registration data (in real app, this would go to your API)
-                            const registrationData = {
-                              transactionId: tx.id,
-                              tournamentId: tournament._id,
-                              tournamentName: tournament.name,
-                              entryFee: tournament.entryFee,
-                              registrationDate: new Date().toISOString(),
-                              status: "Registered"
-                            }
-                            
-                            // Example API call (uncomment for real implementation):
-                            // await fetch("/api/tournaments/register", { 
-                            //   method: "POST", 
-                            //   body: JSON.stringify(registrationData) 
-                            // })
-                            
-                            toast({
-                              title: "Registration Successful!",
-                              description: `Redirecting to confirmation page...`,
-                            })
-                            
-                            // Redirect to payment completed page with tournament details
-                            const queryParams = new URLSearchParams({
-                              txId: tx.id,
-                              amount: tournament.entryFee.toString(),
-                              type: "tournament",
-                              tournamentId: tournament._id.toString(),
-                              tournamentName: tournament.name,
-                              venue: tournament.venue,
-                              startDate: tournament.startDate
-                            })
-                            
-                            setTimeout(() => {
-                              window.location.href = `/payment-completed?${queryParams.toString()}`
-                            }, 1000)
-                          }}
-                          onFailure={() => {
-                            toast({
-                              title: "Registration Failed",
-                              description: "Please try again or use a different payment method",
-                              variant: "destructive",
-                            })
-                          }}
-                        />
+                        <Button className="w-full bg-black text-white hover:bg-gray-900" onClick={() => router.push(`/tournaments/${tournament._id}/register`)}>
+                          Register & Pay
+                        </Button>
                       </div>
                     )}
                     {tournament.status === "closed" && (

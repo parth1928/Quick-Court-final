@@ -11,10 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { 
-  Trophy, Calendar, MapPin, Users, Clock, DollarSign, 
+import {
+  Trophy, Calendar, MapPin, Users, Clock, DollarSign,
   Star, ArrowLeft, CheckCircle, XCircle, AlertCircle,
-  Medal, Award, Target, Info
+  Medal, Award, Target, Info, Mail, Phone
 } from "lucide-react"
 
 interface Tournament {
@@ -33,7 +33,6 @@ interface Tournament {
   prizePool: number
   status: "open" | "closed" | "ongoing" | "completed"
   difficulty: "Beginner" | "Intermediate" | "Advanced" | "Professional"
-  image: string
   description: string
   organizer: string
   organizerContact: string
@@ -52,10 +51,13 @@ interface Tournament {
   participants?: Array<{
     id: number
     name: string
+    email?: string
+    phone?: string
     team?: string
     registrationDate: string
     avatar?: string
   }>
+  createdBy?: string
 }
 
 const mockTournament: Tournament = {
@@ -74,7 +76,6 @@ const mockTournament: Tournament = {
   prizePool: 75000,
   status: "open",
   difficulty: "Intermediate",
-  image: "/placeholder.svg?height=400&width=800&text=Basketball+Tournament",
   description: "Join our exciting spring basketball championship! Teams compete in a thrilling 3-day tournament featuring the best amateur teams in the city. This tournament follows FIBA rules and provides an excellent opportunity for teams to showcase their skills in a competitive environment.",
   organizer: "Elite Sports Complex",
   organizerContact: "tournaments@elitesports.in",
@@ -150,30 +151,82 @@ export default function TournamentDetailsPage() {
 
   useEffect(() => {
     const user = localStorage.getItem("user")
-    if (!user) {
-      router.push("/login")
-      return
+    let parsedUser = null;
+    if (user) {
+      parsedUser = JSON.parse(user)
+      setUserData(parsedUser)
     }
 
-  const parsedUser = JSON.parse(user)
-  if (parsedUser.role !== "user") {
-      router.push("/login")
-      return
-    }
+    // Fetch real tournament data from API
+    const fetchTournament = async () => {
+      try {
+        const response = await fetch(`/api/tournaments/${params.id}`)
+        if (!response.ok) {
+          throw new Error('Tournament not found')
+        }
+        const data = await response.json()
 
-    setUserData(parsedUser)
-    
-    // In a real app, fetch tournament data based on params.id
-    setTournament(mockTournament)
-    
-    // Check if user is already registered
-    const registrations = JSON.parse(localStorage.getItem("tournamentRegistrations") || "[]")
-    setIsRegistered(registrations.includes(parseInt(params.id as string)))
+        // Transform API data to match component interface
+        let participants = data.tournament.participants?.map((p: any, index: number) => ({
+          id: p.user?._id || p.user || index,
+          name: p.user?.name || p.name || 'Unknown User',
+          email: p.user?.email || p.email || '',
+          phone: p.user?.phone || p.phone || '',
+          team: p.team || '',
+          registrationDate: p.registrationDate || new Date().toISOString(),
+          avatar: p.user?.avatar || ''
+        })) || [];
+
+        // Ensure current user is in the participants list if registered
+        let isUserRegistered = false;
+        if (parsedUser) {
+          const userId = parsedUser._id || parsedUser.userId;
+          isUserRegistered = data.tournament.participants?.some((p: any) =>
+            (p.user?._id || p.user) === userId
+          );
+          if (isUserRegistered && !participants.some((p: any) => p.id === userId)) {
+            participants = [
+              {
+                id: userId,
+                name: parsedUser.name || 'You',
+                email: parsedUser.email || '',
+                phone: parsedUser.phone || '',
+                team: '',
+                registrationDate: new Date().toISOString(),
+                avatar: parsedUser.avatar || ''
+              },
+              ...participants
+            ];
+          }
+        }
+
+        const tournamentData = {
+          ...data.tournament,
+          id: data.tournament._id,
+          currentParticipants: participants.length,
+          participants
+        };
+
+        setTournament(tournamentData);
+        setIsRegistered(isUserRegistered || false);
+      } catch (error) {
+        console.error('Error fetching tournament:', error);
+        // Fallback to mock data if API fails
+        setTournament(mockTournament);
+      }
+    };
+
+    fetchTournament();
   }, [router, params.id])
 
-  if (!userData || !tournament) {
+
+
+  if (!tournament) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
   }
+
+  // Check if current user is the owner/creator
+  const isOwner = userData && tournament.createdBy === (userData?._id || userData?.userId);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -218,40 +271,43 @@ export default function TournamentDetailsPage() {
           <h1 className="text-3xl font-bold">{tournament.name}</h1>
           <p className="text-gray-600 mt-1">Tournament Details & Registration</p>
         </div>
+        {isOwner && (
+          <Button
+            className="ml-auto bg-black text-white hover:bg-gray-900"
+            onClick={() => router.push(`/tournaments/${tournament.id}/edit`)}
+          >
+            Edit Tournament
+          </Button>
+        )}
       </div>
 
-      {/* Hero Section */}
-      <Card className="overflow-hidden">
-        <div className="aspect-video md:aspect-[3/1] relative">
-          <img
-            src={tournament.image}
-            alt={tournament.name}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end">
-            <div className="p-6 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge className={getStatusColor(tournament.status)}>
-                  {tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
-                </Badge>
-                <Badge className={getDifficultyColor(tournament.difficulty)}>
-                  {tournament.difficulty}
-                </Badge>
-              </div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2">{tournament.name}</h2>
-              <div className="flex items-center gap-4 text-sm">
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {tournament.venue}, {tournament.location}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {new Date(tournament.startDate).toLocaleDateString()} - {new Date(tournament.endDate).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
+      {/* Header Section */}
+      <Card className="border-gray-200">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Badge className={getStatusColor(tournament.status)}>
+              {tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
+            </Badge>
+            <Badge className={getDifficultyColor(tournament.difficulty)}>
+              {tournament.difficulty}
+            </Badge>
           </div>
-        </div>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">{tournament.name}</h1>
+          <div className="flex flex-wrap items-center gap-4 text-gray-600">
+            <span className="flex items-center gap-1">
+              <MapPin className="h-4 w-4" />
+              {tournament.venue}, {tournament.location}
+            </span>
+            <span className="flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              {new Date(tournament.startDate).toLocaleDateString()} - {new Date(tournament.endDate).toLocaleDateString()}
+            </span>
+            <span className="flex items-center gap-1">
+              <Trophy className="h-4 w-4" />
+              {tournament.sport}
+            </span>
+          </div>
+        </CardHeader>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -412,30 +468,81 @@ export default function TournamentDetailsPage() {
 
             <TabsContent value="participants" className="space-y-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
                     Registered Participants ({tournament.currentParticipants}/{tournament.maxParticipants})
                   </CardTitle>
+                  <Button
+                    variant="outline"
+                    className="border-blue-500 text-blue-700 hover:bg-blue-50 hover:border-blue-700 transition"
+                    onClick={async () => {
+                      const response = await fetch(`/api/tournaments/${tournament.id}`);
+                      if (response.ok) {
+                        const data = await response.json();
+                        const participants = data.tournament.participants?.map((p: any, index: number) => ({
+                          id: p.user?._id || p.user || index,
+                          name: p.user?.name || p.name || 'Unknown User',
+                          email: p.user?.email || p.email || '',
+                          phone: p.user?.phone || p.phone || '',
+                          team: p.team || '',
+                          registrationDate: p.registrationDate || new Date().toISOString(),
+                          avatar: p.user?.avatar || ''
+                        })) || [];
+                        setTournament((prev: any) => ({
+                          ...prev,
+                          participants,
+                          currentParticipants: participants.length
+                        }));
+                      }
+                    }}
+                  >
+                    Refresh Participants
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {tournament.participants && tournament.participants.length > 0 ? (
                     <div className="space-y-3">
-                      {tournament.participants.map((participant) => (
-                        <div key={participant.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                          <Avatar>
-                            <AvatarImage src={participant.avatar} />
-                            <AvatarFallback>{participant.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <h4 className="font-medium">{participant.name}</h4>
-                            {participant.team && (
-                              <p className="text-sm text-gray-600">{participant.team}</p>
-                            )}
+                      {tournament.participants.map((participant, index) => (
+                        <div
+                          key={participant.id || index}
+                          className={`flex items-start justify-between p-3 border rounded-lg ${participant.id === (userData?._id || userData?.userId) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              {participant.avatar ? (
+                                <AvatarImage src={participant.avatar} alt={participant.name} />
+                              ) : (
+                                <AvatarFallback>{participant.name?.[0] || '?'}</AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div className="space-y-1">
+                              <p className={`font-medium ${participant.id === (userData?._id || userData?.userId) ? 'text-blue-700' : ''}`}>{participant.name}{participant.id === (userData?._id || userData?.userId) ? ' (You)' : ''}</p>
+                              {participant.email && (
+                                <p className="text-sm text-gray-600 flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  {participant.email}
+                                </p>
+                              )}
+                              {participant.phone && (
+                                <p className="text-sm text-gray-600 flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {participant.phone}
+                                </p>
+                              )}
+                              {participant.team && (
+                                <p className="text-sm text-blue-600 flex items-center gap-1">
+                                  <Users className="h-3 w-3" />
+                                  Team: {participant.team}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-600">Registered</p>
-                              <p className="text-xs text-gray-500">{new Date(participant.registrationDate).toLocaleDateString('en-IN')}</p>
+                            <Badge variant="outline" className={`text-xs ${participant.id === (userData?._id || userData?.userId) ? 'border-blue-500 text-blue-700' : ''}`}>Registered</Badge>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(participant.registrationDate).toLocaleDateString('en-IN')}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -443,6 +550,7 @@ export default function TournamentDetailsPage() {
                   ) : (
                     <p className="text-gray-600 text-center py-8">No participants registered yet. Be the first to join!</p>
                   )}
+// Avatar imports for participant profile display
                 </CardContent>
               </Card>
             </TabsContent>
@@ -488,22 +596,17 @@ export default function TournamentDetailsPage() {
 
               {isRegistered ? (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <span className="text-green-800 font-medium">You're registered!</span>
-                  </div>
-                  <Button variant="outline" className="w-full">
-                    View Registration Details
+                  <Button disabled className="w-full bg-green-100 text-green-700 border-green-300">
+                    <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
+                    Already Registered
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {isRegistrationOpen() ? (
-                    <Link href={`/tournaments/${tournament.id}/register`}>
-                      <Button className="w-full">
-                        Register Now - {formatInr(tournament.entryFee)}
-                      </Button>
-                    </Link>
+                    <Button className="w-full" onClick={() => router.push(`/tournaments/${tournament.id}/register`)}>
+                      Register Now - {formatInr(tournament.entryFee)}
+                    </Button>
                   ) : (
                     <div className="space-y-2">
                       {tournament.status === "closed" && (

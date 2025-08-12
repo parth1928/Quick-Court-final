@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,9 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { Upload, X } from "lucide-react"
+import { Badge } from "@/components/ui/badge";
+import { Upload, X } from "lucide-react";
+import ImageUpload from "@/components/ImageUpload";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const sportsOptions = [
   "Basketball",
@@ -81,10 +81,8 @@ export default function FacilityManagementPage() {
     }))
   }
 
-  const handlePhotoUpload = () => {
-    // Simulate photo upload
-    const newPhoto = `/placeholder.svg?height=200&width=300&text=Facility+Photo+${uploadedPhotos.length + 1}`
-    setUploadedPhotos((prev) => [...prev, newPhoto])
+  const handlePhotoUpload = (url: string) => {
+    setUploadedPhotos((prev) => [...prev, url])
   }
 
   const removePhoto = (index: number) => {
@@ -94,7 +92,26 @@ export default function FacilityManagementPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
+      const userStr = localStorage.getItem("user");
+      let token = localStorage.getItem("token");
+      
+      if (!userStr) {
+        alert("Please log in again");
+        return;
+      }
+      
+      const user = JSON.parse(userStr);
+      
+      // Try to get token from localStorage first, then from user object
+      if (!token && user.token) {
+        token = user.token;
+      }
+      
+      if (!token) {
+        alert("Authentication required. Please log in again.");
+        return;
+      }
+      
       const response = await fetch("/api/owner/facilities", {
         method: "POST",
         headers: {
@@ -275,16 +292,10 @@ export default function FacilityManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePhotoUpload}
-                className="border-gray-300 text-gray-700 bg-transparent"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Photos
-              </Button>
-
+              <ImageUpload
+                label="Upload Facility Photo"
+                onChange={handlePhotoUpload}
+              />
               {uploadedPhotos.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {uploadedPhotos.map((photo, index) => (

@@ -21,6 +21,13 @@ import {
 import { format } from "date-fns"
 import { PriceRangeSlider, MinimalSlider } from "@/components/ui/enhanced-slider"
 
+interface ScheduleEvent {
+  date: string;
+  time: string;
+  event: string;
+  location: string;
+}
+
 interface HostedTournament {
   id: number
   name: string
@@ -37,12 +44,13 @@ interface HostedTournament {
   status: "draft" | "submitted" | "approved" | "open" | "ongoing" | "completed"
   difficulty: "Beginner" | "Intermediate" | "Advanced" | "Professional"
   courts: string[]
-  amenities: string[]
-  rules: string[]
-  contactEmail: string
-  contactPhone: string
-  createdDate: string
-  revenue?: number
+  amenities: string[];
+  rules: string[];
+  schedule?: ScheduleEvent[];
+  contactEmail: string;
+  contactPhone: string;
+  createdDate: string;
+  revenue?: number;
 }
 
 const mockHostedTournaments: HostedTournament[] = [
@@ -335,19 +343,19 @@ export default function TournamentHostingPage() {
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
-          <TournamentGrid tournaments={tournaments} getStatusColor={getStatusColor} onEdit={setSelectedTournament} />
+          <TournamentGrid tournaments={tournaments} getStatusColor={getStatusColor} onEdit={setSelectedTournament} router={router} />
         </TabsContent>
 
         <TabsContent value="active" className="space-y-4">
-          <TournamentGrid tournaments={activeTournaments} getStatusColor={getStatusColor} onEdit={setSelectedTournament} />
+          <TournamentGrid tournaments={activeTournaments} getStatusColor={getStatusColor} onEdit={setSelectedTournament} router={router} />
         </TabsContent>
 
         <TabsContent value="draft" className="space-y-4">
-          <TournamentGrid tournaments={draftTournaments} getStatusColor={getStatusColor} onEdit={setSelectedTournament} />
+          <TournamentGrid tournaments={draftTournaments} getStatusColor={getStatusColor} onEdit={setSelectedTournament} router={router} />
         </TabsContent>
 
         <TabsContent value="completed" className="space-y-4">
-          <TournamentGrid tournaments={completedTournaments} getStatusColor={getStatusColor} onEdit={setSelectedTournament} />
+          <TournamentGrid tournaments={completedTournaments} getStatusColor={getStatusColor} onEdit={setSelectedTournament} router={router} />
         </TabsContent>
       </Tabs>
 
@@ -389,10 +397,11 @@ export default function TournamentHostingPage() {
   )
 }
 
-function TournamentGrid({ tournaments, getStatusColor, onEdit }: {
-  tournaments: HostedTournament[]
-  getStatusColor: (status: string) => string
-  onEdit: (tournament: HostedTournament) => void
+function TournamentGrid({ tournaments, getStatusColor, onEdit, router }: {
+  tournaments: HostedTournament[];
+  getStatusColor: (status: string) => string;
+  onEdit: (tournament: HostedTournament) => void;
+  router: ReturnType<typeof useRouter>;
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -455,7 +464,12 @@ function TournamentGrid({ tournaments, getStatusColor, onEdit }: {
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Button>
-              <Button variant="outline" size="icon">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => router.push(`/tournaments/${tournament.id}`)}
+                title="View Tournament"
+              >
                 <Eye className="h-4 w-4" />
               </Button>
             </div>
@@ -495,7 +509,13 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess, toast, userData
     difficulty: "",
     contactEmail: "",
     contactPhone: "",
-    rules: [""]
+    rules: [""],
+    schedule: [{
+      date: "",
+      time: "",
+      event: "",
+      location: ""
+    }]
   })
   
   const [entryFeeRange, setEntryFeeRange] = useState([2500])
@@ -503,6 +523,36 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess, toast, userData
 
   const handleSubmit = async () => {
     try {
+      // Validation
+      if (!formData.name || !formData.sport || !formData.contactEmail) {
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const validRules = formData.rules.filter(rule => rule.trim())
+      if (validRules.length === 0) {
+        toast({
+          title: "Error", 
+          description: "Please add at least one tournament rule",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const validSchedule = formData.schedule.filter(event => event.date && event.time && event.event)
+      if (validSchedule.length === 0) {
+        toast({
+          title: "Error",
+          description: "Please add at least one schedule event", 
+          variant: "destructive"
+        })
+        return
+      }
+
       // No need to manually handle token - it's in HTTP-only cookie
       const tournamentData = {
         name: formData.name,
@@ -517,6 +567,7 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess, toast, userData
         prizePool: prizePoolRange[0],
         difficulty: formData.difficulty,
         rules: formData.rules.filter(rule => rule.trim()),
+        schedule: formData.schedule.filter(event => event.date && event.time && event.event),
         venue: userData?.businessName || "Your Facility", // Get from user data
         location: userData?.address || "Facility Location", // Get from user data
         organizer: userData?.name || "Facility Owner",
@@ -579,7 +630,13 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess, toast, userData
         difficulty: "",
         contactEmail: "",
         contactPhone: "",
-        rules: [""]
+        rules: [""],
+        schedule: [{
+          date: "",
+          time: "",
+          event: "",
+          location: ""
+        }]
       })
       setEntryFeeRange([2500])
       setPrizePoolRange([50000])
@@ -607,7 +664,13 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess, toast, userData
       difficulty: "",
       contactEmail: "",
       contactPhone: "",
-      rules: [""]
+      rules: [""],
+      schedule: [{
+        date: "",
+        time: "",
+        event: "",
+        location: ""
+      }]
     })
   }
 
@@ -790,6 +853,136 @@ function CreateTournamentDialog({ open, onOpenChange, onSuccess, toast, userData
               />
             </div>
           </div>
+
+          {/* Tournament Rules */}
+          <div className="space-y-2">
+            <Label className="text-base font-medium">Tournament Rules & Regulations *</Label>
+            <p className="text-sm text-gray-600">Add rules that participants must follow</p>
+            {formData.rules.map((rule, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  value={rule}
+                  onChange={(e) => {
+                    const newRules = [...formData.rules]
+                    newRules[index] = e.target.value
+                    setFormData(prev => ({ ...prev, rules: newRules }))
+                  }}
+                  placeholder={`Rule ${index + 1}...`}
+                  className="flex-1"
+                />
+                {formData.rules.length > 1 && (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => {
+                      const newRules = formData.rules.filter((_, i) => i !== index)
+                      setFormData(prev => ({ ...prev, rules: newRules }))
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setFormData(prev => ({ ...prev, rules: [...prev.rules, ""] }))}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Rule
+            </Button>
+          </div>
+
+          {/* Tournament Schedule */}
+          <div className="space-y-2">
+            <Label className="text-base font-medium">Tournament Schedule *</Label>
+            <p className="text-sm text-gray-600">Add tournament events and timings</p>
+            {formData.schedule.map((event, index) => (
+              <Card key={index} className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date</Label>
+                    <Input
+                      type="date"
+                      value={event.date}
+                      onChange={(e) => {
+                        const newSchedule = [...formData.schedule]
+                        newSchedule[index].date = e.target.value
+                        setFormData(prev => ({ ...prev, schedule: newSchedule }))
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Time</Label>
+                    <Input
+                      type="time"
+                      value={event.time}
+                      onChange={(e) => {
+                        const newSchedule = [...formData.schedule]
+                        newSchedule[index].time = e.target.value
+                        setFormData(prev => ({ ...prev, schedule: newSchedule }))
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Event</Label>
+                    <Input
+                      value={event.event}
+                      onChange={(e) => {
+                        const newSchedule = [...formData.schedule]
+                        newSchedule[index].event = e.target.value
+                        setFormData(prev => ({ ...prev, schedule: newSchedule }))
+                      }}
+                      placeholder="e.g., Opening Ceremony, Quarter Finals..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Location</Label>
+                    <Input
+                      value={event.location}
+                      onChange={(e) => {
+                        const newSchedule = [...formData.schedule]
+                        newSchedule[index].location = e.target.value
+                        setFormData(prev => ({ ...prev, schedule: newSchedule }))
+                      }}
+                      placeholder="e.g., Court A, Main Hall..."
+                    />
+                  </div>
+                </div>
+                {formData.schedule.length > 1 && (
+                  <div className="flex justify-end mt-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const newSchedule = formData.schedule.filter((_, i) => i !== index)
+                        setFormData(prev => ({ ...prev, schedule: newSchedule }))
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove Event
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            ))}
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setFormData(prev => ({ 
+                ...prev, 
+                schedule: [...prev.schedule, { date: "", time: "", event: "", location: "" }] 
+              }))}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Event
+            </Button>
+          </div>
         </div>
 
         <DialogFooter>
@@ -811,7 +1004,30 @@ function EditTournamentDialog({ tournament, open, onOpenChange, onSuccess }: {
   onOpenChange: (open: boolean) => void
   onSuccess: (tournament: HostedTournament) => void
 }) {
-  // Similar implementation to CreateTournamentDialog but pre-filled with tournament data
+  const [formData, setFormData] = useState({
+    name: tournament.name || "",
+    description: tournament.description || "",
+    maxParticipants: tournament.maxParticipants || 0,
+    rules: tournament.rules ? [...tournament.rules] : [""],
+    schedule: Array.isArray(tournament.schedule) ? tournament.schedule.map((e: ScheduleEvent) => ({ ...e })) : [],
+    contactEmail: tournament.contactEmail || "",
+    contactPhone: tournament.contactPhone || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const handleSubmit = async () => {
+    setSaving(true);
+    const res = await fetch(`/api/tournaments/${tournament.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+    setSaving(false);
+    if (res.ok) {
+      const data = await res.json();
+      onSuccess(data.tournament);
+      onOpenChange(false);
+    }
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -821,15 +1037,115 @@ function EditTournamentDialog({ tournament, open, onOpenChange, onSuccess }: {
             Edit details for {tournament.name}.
           </DialogDescription>
         </DialogHeader>
-        <div className="p-4 text-center text-gray-500">
-          Tournament edit form coming soon...
+        <div className="space-y-4">
+          <Input
+            name="name"
+            value={formData.name}
+            onChange={e => setFormData(f => ({ ...f, name: e.target.value }))}
+            placeholder="Tournament Name"
+            className="mb-2"
+          />
+          <Textarea
+            name="description"
+            value={formData.description}
+            onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
+            placeholder="Description"
+            className="mb-2"
+          />
+          <Input
+            name="maxParticipants"
+            type="number"
+            value={formData.maxParticipants}
+            onChange={e => setFormData(f => ({ ...f, maxParticipants: Number(e.target.value) }))}
+            placeholder="Max Participants"
+            className="mb-2"
+          />
+          {/* Rules Edit */}
+          <div className="mb-4">
+            <div className="font-semibold mb-2">Rules</div>
+            {formData.rules.length === 0 && <div className="text-gray-500 text-sm mb-2">No rules yet.</div>}
+            {formData.rules.map((rule, idx) => (
+              <div key={idx} className="flex gap-2 mb-2 items-center">
+                <Input
+                  type="text"
+                  value={rule}
+                  onChange={e => {
+                    const updated = [...formData.rules];
+                    updated[idx] = e.target.value;
+                    setFormData(f => ({ ...f, rules: updated }));
+                  }}
+                  className="flex-1"
+                />
+                <Button variant="ghost" size="icon" onClick={() => setFormData(f => ({ ...f, rules: f.rules.filter((_, i) => i !== idx) }))}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setFormData(f => ({ ...f, rules: [...f.rules, ""] }))} className="mt-1"><Plus className="h-4 w-4 mr-1" />Add Rule</Button>
+          </div>
+          {/* Schedule Edit */}
+          <div className="mb-4">
+            <div className="font-semibold mb-2">Schedule</div>
+            {formData.schedule.length === 0 && <div className="text-gray-500 text-sm mb-2">No schedule events yet.</div>}
+            {formData.schedule.map((item: ScheduleEvent, idx: number) => (
+              <div key={idx} className="mb-4 p-3 border rounded-lg bg-gray-50">
+                <div className="flex flex-col md:flex-row md:items-center md:gap-4 gap-2">
+                  <Input
+                    type="date"
+                    value={item.date ? item.date.slice(0, 10) : ""}
+                    onChange={e => {
+                      const updated = [...formData.schedule];
+                      updated[idx].date = e.target.value;
+                      setFormData(f => ({ ...f, schedule: updated }));
+                    }}
+                    className="md:w-32"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Time"
+                    value={item.time}
+                    onChange={e => {
+                      const updated = [...formData.schedule];
+                      updated[idx].time = e.target.value;
+                      setFormData(f => ({ ...f, schedule: updated }));
+                    }}
+                    className="md:w-28"
+                  />
+                </div>
+                <div className="flex flex-col md:flex-row md:items-center md:gap-4 gap-2 mt-2">
+                  <Input
+                    type="text"
+                    placeholder="Event"
+                    value={item.event}
+                    onChange={e => {
+                      const updated = [...formData.schedule];
+                      updated[idx].event = e.target.value;
+                      setFormData(f => ({ ...f, schedule: updated }));
+                    }}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Location"
+                    value={item.location}
+                    onChange={e => {
+                      const updated = [...formData.schedule];
+                      updated[idx].location = e.target.value;
+                      setFormData(f => ({ ...f, schedule: updated }));
+                    }}
+                    className="md:w-32"
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => setFormData(f => ({ ...f, schedule: f.schedule.filter((_: ScheduleEvent, i: number) => i !== idx) }))}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setFormData(f => ({ ...f, schedule: [...f.schedule, { date: "", time: "", event: "", location: "" }] }))} className="mt-1"><Plus className="h-4 w-4 mr-1" />Add Event</Button>
+          </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange(false)}>
-            Save Changes
+          <Button onClick={handleSubmit} disabled={saving}>
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

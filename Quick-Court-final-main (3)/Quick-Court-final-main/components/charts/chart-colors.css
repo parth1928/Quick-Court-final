@@ -1,0 +1,45 @@
+/* Chart-specific color utilities to avoid inline styles */
+
+/* Dynamic color classes for chart elements */
+.chart-color-primary { background-color: #2563eb; }
+.chart-color-secondary { background-color: #059669; }
+.chart-color-accent { background-color: #dc2626; }
+.chart-color-warning { background-color: #ea580c; }
+.chart-color-success { background-color: #16a34a; }
+.chart-color-info { background-color: #0891b2; }
+.chart-color-purple { background-color: #7c3aed; }
+.chart-color-yellow { background-color: #eab308; }
+
+/* Text colors */
+.chart-text-primary { color: #2563eb; }
+.chart-text-secondary { color: #059669; }
+.chart-text-accent { color: #dc2626; }
+.chart-text-warning { color: #ea580c; }
+.chart-text-success { color: #16a34a; }
+.chart-text-info { color: #0891b2; }
+.chart-text-purple { color: #7c3aed; }
+.chart-text-yellow { color: #eab308; }
+
+/* Border colors */
+.chart-border-primary { border-color: #2563eb; }
+.chart-border-secondary { border-color: #059669; }
+.chart-border-accent { border-color: #dc2626; }
+.chart-border-warning { border-color: #ea580c; }
+.chart-border-success { border-color: #16a34a; }
+.chart-border-info { border-color: #0891b2; }
+.chart-border-purple { border-color: #7c3aed; }
+.chart-border-yellow { border-color: #eab308; }
+
+/* Dynamic height utilities */
+.chart-height-300 { height: 300px; }
+.chart-height-350 { height: 350px; }
+.chart-height-400 { height: 400px; }
+
+/* Color indicator dots with specific sport theme colors */
+.sport-color-tennis { background-color: #10b981; }
+.sport-color-basketball { background-color: #f59e0b; } 
+.sport-color-badminton { background-color: #ef4444; }
+.sport-color-swimming { background-color: #3b82f6; }
+.sport-color-football { background-color: #8b5cf6; }
+.sport-color-volleyball { background-color: #06b6d4; }
+.sport-color-default { background-color: #6b7280; }

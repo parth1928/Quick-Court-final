@@ -36,21 +36,36 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error('Login failed:', data);
         // Handle specific error cases
         if (response.status === 429) {
           alert('Too many login attempts. Please try again later.');
+        } else if (response.status === 403 && (data?.type === 'banned' || data?.type === 'suspended')) {
+          // Handle banned/suspended accounts with detailed message
+          const message = data?.message || 'Your account has been restricted. Please contact support.';
+          const contactEmail = data?.contactEmail || 'support@quickcourt.com';
+          
+          const userChoice = confirm(
+            `${message}\n\nWould you like to contact support now?`
+          );
+          
+          if (userChoice) {
+            router.push('/contact-support');
+          }
         } else {
-          alert(data.error || 'Login failed. Please check your credentials.');
+          // Show backend error message if available, else fallback
+          const errorMsg = data?.error || data?.message || 'Login failed. Please check your credentials.';
+          console.error('Login failed:', errorMsg);
+          alert(errorMsg);
         }
         return;
       }
 
   // No 2FA step now; direct login
 
-      // Store user data locally (token is already set in HTTP-only cookie by API)
-      if (data.user) {
+      // Store user data and token locally
+      if (data.user && data.token) {
         localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("token", data.token);
 
         // Redirect based on user type
         switch (data.user.role) {
@@ -87,7 +102,7 @@ export default function LoginPage() {
         {/* Left side: Photo */}
         <div className="hidden md:flex md:w-1/2 bg-gray-100 p-2">
           <img
-            src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754908993~exp=1754912593~hmac=50369d3d421502b36127f15897d3a3cbfa5e32ad16b54a46046fb458e0a6b157&w=360%20360w"
+            src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754961952~exp=1754965552~hmac=71f8855959138d97dcf91b3aac910f65dec7b76ddb97d29969a2c619b9892ba8&w=2000"
             alt="Login illustration"
             className="object-cover object-center w-full h-full rounded-xl min-h-[400px] max-h-[600px]"
           />

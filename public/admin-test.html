@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin System Test - Live Server</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: #28a745;
+            background: #d4edda;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            color: #007bff;
+            background: #d1ecf1;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 10px 0;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ Admin System Test - Live Server</h1>
+        <p>Test your admin system database connection and functionality in live server environment.</p>
+
+        <!-- Database Test Section -->
+        <div class="test-section">
+            <h2>🔍 Database Connection Test</h2>
+            <button onclick="testDatabase()">Test Database Connection</button>
+            <div id="dbResult"></div>
+        </div>
+
+        <!-- Admin Creation Test Section -->
+        <div class="test-section">
+            <h2>👤 Create Admin User Test</h2>
+            
+            <div class="form-group">
+                <label>Name:</label>
+                <input type="text" id="adminName" value="Test Admin" />
+            </div>
+            
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="adminEmail" value="" />
+            </div>
+            
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="adminPassword" value="testpass123" />
+            </div>
+            
+            <div class="form-group">
+                <label>Phone:</label>
+                <input type="text" id="adminPhone" value="+1234567890" />
+            </div>
+            
+            <div class="form-group">
+                <label>Department:</label>
+                <select id="adminDepartment">
+                    <option value="operations">Operations</option>
+                    <option value="customer_service">Customer Service</option>
+                    <option value="facilities">Facilities</option>
+                    <option value="tournaments">Tournaments</option>
+                    <option value="technical">Technical</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Permissions:</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="canManageUsers" />
+                        <label for="canManageUsers">Manage Users</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="canManageFacilities" />
+                        <label for="canManageFacilities">Manage Facilities</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="canManageTournaments" />
+                        <label for="canManageTournaments">Manage Tournaments</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="canViewReports" checked />
+                        <label for="canViewReports">View Reports</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="canManageBookings" checked />
+                        <label for="canManageBookings">Manage Bookings</label>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="createAdmin()">Create Admin User</button>
+            <div id="adminResult"></div>
+        </div>
+
+        <!-- Admin List Test Section -->
+        <div class="test-section">
+            <h2>📋 List Admin Users</h2>
+            <button onclick="listAdmins()">Get Admin List</button>
+            <div id="listResult"></div>
+        </div>
+
+        <!-- Admin Stats Test Section -->
+        <div class="test-section">
+            <h2>📊 Admin Statistics</h2>
+            <button onclick="getStats()">Get Admin Stats</button>
+            <div id="statsResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // Set unique email on page load
+        document.getElementById('adminEmail').value = `testadmin${Date.now()}@example.com`;
+
+        async function testDatabase() {
+            const resultDiv = document.getElementById('dbResult');
+            resultDiv.innerHTML = '<div class="info">Testing database connection...</div>';
+            
+            try {
+                const response = await fetch('/api/test/db');
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Database connection successful!<br>
+                            Status: ${result.status}<br>
+                            Database: ${result.database}<br>
+                            Host: ${result.host || 'N/A'}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Database connection failed:<br>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Test failed: ${error.message}<br>
+                        Make sure your server is running!
+                    </div>
+                `;
+            }
+        }
+
+        async function createAdmin() {
+            const resultDiv = document.getElementById('adminResult');
+            resultDiv.innerHTML = '<div class="info">Creating admin user...</div>';
+            
+            try {
+                const adminData = {
+                    name: document.getElementById('adminName').value,
+                    email: document.getElementById('adminEmail').value,
+                    password: document.getElementById('adminPassword').value,
+                    phone: document.getElementById('adminPhone').value,
+                    department: document.getElementById('adminDepartment').value,
+                    canManageUsers: document.getElementById('canManageUsers').checked,
+                    canManageFacilities: document.getElementById('canManageFacilities').checked,
+                    canManageTournaments: document.getElementById('canManageTournaments').checked,
+                    canViewReports: document.getElementById('canViewReports').checked,
+                    canManageBookings: document.getElementById('canManageBookings').checked,
+                    notes: 'Created via live server test'
+                };
+                
+                const response = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(adminData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Admin user created successfully!<br>
+                            User ID: ${result.data.user._id}<br>
+                            Name: ${result.data.user.name}<br>
+                            Email: ${result.data.user.email}<br>
+                            Department: ${result.data.adminProfile.department}
+                        </div>
+                    `;
+                    // Update email for next test
+                    document.getElementById('adminEmail').value = `testadmin${Date.now()}@example.com`;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Admin creation failed:<br>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Creation failed: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function listAdmins() {
+            const resultDiv = document.getElementById('listResult');
+            resultDiv.innerHTML = '<div class="info">Fetching admin list...</div>';
+            
+            try {
+                const response = await fetch('/api/admin/users/list');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const admins = result.data.admins;
+                    let html = `<div class="success">✅ Found ${admins.length} admin users:</div>`;
+                    
+                    admins.forEach(admin => {
+                        html += `
+                            <div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                                <strong>${admin.name}</strong> (${admin.email})<br>
+                                Department: ${admin.adminProfile?.department || 'N/A'}<br>
+                                Permissions: ${admin.adminProfile?.permissions?.join(', ') || 'None'}
+                            </div>
+                        `;
+                    });
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Failed to fetch admin list:<br>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ List fetch failed: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function getStats() {
+            const resultDiv = document.getElementById('statsResult');
+            resultDiv.innerHTML = '<div class="info">Fetching admin statistics...</div>';
+            
+            try {
+                const response = await fetch('/api/admin/stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = result.data;
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Admin Statistics:<br>
+                            Total Admins: ${stats.generalStats.totalAdmins}<br>
+                            Active Admins: ${stats.generalStats.activeAdmins}<br>
+                            User Managers: ${stats.permissionStats.canManageUsers}<br>
+                            Facility Managers: ${stats.permissionStats.canManageFacilities}<br>
+                            Report Viewers: ${stats.permissionStats.canViewReports}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Failed to fetch stats:<br>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Stats fetch failed: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-test database on page load
+        window.onload = function() {
+            testDatabase();
+        };
+    </script>
+</body>
+</html>

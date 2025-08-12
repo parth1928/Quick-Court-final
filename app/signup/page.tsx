@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import RegistrationOTPVerification from "@/components/ui/registration-otp-verification"
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -34,13 +35,16 @@ export default function SignUpPage() {
 
   // OTP flow
   const [showOTPModal, setShowOTPModal] = useState(false)
-  const [otp, setOtp] = useState(["", "", "", "", "", ""])
   const [postSignupRoute, setPostSignupRoute] = useState("/")
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg(null)
     setIsSubmitting(true)
+    
+    console.log('📝 Starting registration for:', formData.email)
+    console.log('🕐 Current time:', new Date().toISOString())
+    
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -56,9 +60,25 @@ export default function SignUpPage() {
       })
 
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || data.message || "Registration failed")
+      
+      console.log('📡 Registration response:', {
+        status: response.status,
+        step: data.step,
+        message: data.message,
+        error: data.error
+      })
+      
+      if (!response.ok) {
+        // Show backend error detail if present
+        let msg = data.error || data.message || "Registration failed";
+        if (data.detail) {
+          msg += `\nDetails: ${data.detail}`;
+        }
+        throw new Error(msg);
+      }
 
       if (data.step === 'verify_otp') {
+        console.log('✅ Registration successful - showing OTP modal')
         // Show OTP modal for verification
         setShowOTPModal(true)
         // Set route based on user type for after OTP verification
@@ -67,6 +87,7 @@ export default function SignUpPage() {
         if (userType === 'admin') route = '/admin-dashboard'
         setPostSignupRoute(route)
       } else {
+        console.log('⚠️ Unexpected registration flow - no OTP required')
         // Direct registration without OTP (shouldn't happen in new flow)
         localStorage.setItem(
           "user",
@@ -79,112 +100,33 @@ export default function SignUpPage() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed"
+      console.error('❌ Registration error:', msg)
       setErrorMsg(msg)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleOTPChange = (index: number, value: string) => {
-    if (value.length > 1) return
-    const newOtp = [...otp]
-    newOtp[index] = value.replace(/\D/g, "") // digits only
-    setOtp(newOtp)
-    if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`)?.focus()
-    }
+  const handleOTPSuccess = (userData: any, token: string) => {
+    console.log('🎉 OTP verification successful!')
+    console.log('👤 User data:', userData)
+    
+    // Store token and user data
+    localStorage.setItem('token', token);
+    localStorage.setItem(
+      "user",
+      JSON.stringify({ ...userData, loginTime: new Date().toISOString() })
+    )
+
+    setShowOTPModal(false)
+    console.log('🚀 Redirecting to:', postSignupRoute)
+    router.push(postSignupRoute)
   }
 
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      document.getElementById(`otp-${index - 1}`)?.focus()
-    }
-    if (e.key === "ArrowLeft" && index > 0) document.getElementById(`otp-${index - 1}`)?.focus()
-    if (e.key === "ArrowRight" && index < 5) document.getElementById(`otp-${index + 1}`)?.focus()
-  }
-
-  const handleVerifyOTP = async () => {
-    const code = otp.join("")
-    if (code.length !== 6) {
-      setErrorMsg("Please enter the complete 6-digit code")
-      return
-    }
-
-    setIsSubmitting(true)
+  const handleBackToSignup = () => {
+    console.log('🔙 Going back to signup form')
+    setShowOTPModal(false)
     setErrorMsg(null)
-
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email,
-          otp: code,
-          step: 'verify_otp'
-        }),
-      })
-
-      const data = await response.json()
-      
-      if (!response.ok) {
-        if (data.maxAttemptsExceeded) {
-          setErrorMsg("Too many incorrect attempts. Please sign up again.")
-          setShowOTPModal(false)
-          // Reset form or redirect to signup
-          setTimeout(() => {
-            window.location.reload()
-          }, 2000)
-          return
-        }
-        throw new Error(data.error || "OTP verification failed")
-      }
-
-      // Success - account created
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ ...data.user, loginTime: new Date().toISOString() })
-      )
-
-      setShowOTPModal(false)
-      router.push(postSignupRoute)
-
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "OTP verification failed"
-      setErrorMsg(msg)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleResendOTP = async () => {
-    setErrorMsg(null)
-    setIsSubmitting(true)
-
-    try {
-      const response = await fetch("/api/auth/resend-registration-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email
-        }),
-      })
-
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to resend code")
-      }
-
-      // Clear current OTP input
-      setOtp(["", "", "", "", "", ""])
-      alert("A new verification code has been sent to your email.")
-
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to resend code"
-      setErrorMsg(msg)
-    } finally {
-      setIsSubmitting(false)
-    }
   }
 
   return (
@@ -193,7 +135,7 @@ export default function SignUpPage() {
         {/* Left: Illustration (small & fixed to reduce scroll) */}
         <div className="hidden md:flex md:w-5/12 bg-gray-100 p-2">
           <img
-            src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754908993~exp=1754912593~hmac=50369d3d421502b36127f15897d3a3cbfa5e32ad16b54a46046fb458e0a6b157&w=360%20360w"
+            src="https://img.freepik.com/free-photo/woman-playing-tennis-full-shot_23-2149036416.jpg?t=st=1754961952~exp=1754965552~hmac=71f8855959138d97dcf91b3aac910f65dec7b76ddb97d29969a2c619b9892ba8&w=2000"
             alt="Sign up"
             className="object-cover object-center w-full h-full rounded-xl min-h-[400px] max-h-[800px]"
           />
@@ -352,68 +294,21 @@ export default function SignUpPage() {
         </div>
       </div>
 
-      {/* OTP Verification Modal (compact) */}
+      {/* OTP Verification Modal */}
       <Dialog open={showOTPModal} onOpenChange={setShowOTPModal}>
         <DialogContent className="sm:max-w-md border-gray-200">
           <DialogHeader>
-            <DialogTitle className="text-gray-900">Verify Your Email</DialogTitle>
-            <DialogDescription className="text-gray-600">
-              We sent a 6-digit code to your email. Enter it to continue.
+            <DialogTitle>Verify Your Email</DialogTitle>
+            <DialogDescription>
+              We've sent a 6-digit verification code to your email address
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="flex justify-center gap-2">
-              {otp.map((digit, index) => (
-                <Input
-                  key={index}
-                  id={`otp-${index}`}
-                  inputMode="numeric"
-                  type="text"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleOTPChange(index, e.target.value)}
-                  onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                  className="h-10 w-10 text-center text-lg font-semibold border-gray-300"
-                />
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1 border-gray-300 bg-transparent"
-                onClick={() => setShowOTPModal(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button 
-                className="flex-1 bg-gray-900 hover:bg-gray-800" 
-                onClick={handleVerifyOTP}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Verifying...' : 'Verify'}
-              </Button>
-            </div>
-
-            {errorMsg && (
-              <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded">
-                {errorMsg}
-              </div>
-            )}
-
-            <div className="text-center">
-              <Button
-                variant="link"
-                className="text-sm text-gray-900"
-                onClick={handleResendOTP}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Sending...' : 'Resend Code'}
-              </Button>
-            </div>
-          </div>
+          <RegistrationOTPVerification
+            email={formData.email}
+            onSuccess={handleOTPSuccess}
+            onBack={handleBackToSignup}
+            showCard={false}
+          />
         </DialogContent>
       </Dialog>
     </div>

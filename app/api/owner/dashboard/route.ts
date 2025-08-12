@@ -1,17 +1,17 @@
-import { NextResponse } from "next/server";
-import { withAuth } from "@/lib/auth";
+import { NextResponse, NextRequest } from "next/server";
+import { withAuth, ROLES, AuthContext } from "@/lib/auth";
 import dbConnect from "@/lib/db/connect";
 import Facility from "@/models/Facility";
 import Booking from "@/models/Booking";
 import Court from "@/models/Court";
 import { startOfMonth, endOfMonth } from "date-fns";
 
-export const GET = withAuth(async (req: Request, user: any) => {
+export const GET = withAuth(async (req: NextRequest, user: AuthContext) => {
   try {
     await dbConnect();
 
     // Get all facilities owned by the user
-    const facilities = await Facility.find({ owner: user._id });
+    const facilities = await Facility.find({ owner: user.userId });
     const facilityIds = facilities.map(f => f._id);
 
     // Get all courts for these facilities
@@ -73,4 +73,4 @@ export const GET = withAuth(async (req: Request, user: any) => {
       { status: 500 }
     );
   }
-}, ["owner"]);
+}, [ROLES.OWNER]);

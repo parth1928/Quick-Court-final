@@ -20,46 +20,46 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-const existingCourts = [
-  {
-    id: 1,
-    name: "Basketball Court A",
-    sport: "Basketball",
-  pricing: 700,
-    operatingHours: "6:00 AM - 11:00 PM",
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Tennis Court 1",
-    sport: "Tennis",
-  pricing: 850,
-    operatingHours: "7:00 AM - 10:00 PM",
-    status: "Active",
-  },
-  {
-    id: 3,
-    name: "Volleyball Court",
-    sport: "Volleyball",
-  pricing: 600,
-    operatingHours: "8:00 AM - 9:00 PM",
-    status: "Maintenance",
-  },
-]
+// Real data will be fetched from API
 
 const sportsOptions = ["Basketball", "Tennis", "Volleyball", "Badminton", "Football", "Table Tennis"]
 
 export default function CourtManagementPage() {
   const [userData, setUserData] = useState<any>(null)
-  const [courts, setCourts] = useState(existingCourts)
+  interface Court {
+    _id: string;
+    name: string;
+    sportType: string;
+    pricePerHour: number;
+    operatingHours: {
+      start: string;
+      end: string;
+    };
+    status: 'active' | 'maintenance' | 'inactive';
+    venue: {
+      _id: string;
+      name: string;
+      shortLocation?: string;
+    };
+    pricing?: {
+      hourlyRate?: number;
+      timeSlotPricing?: { start: string; end: string; price: number }[];
+    };
+  }
+  
+  const [courts, setCourts] = useState<Court[]>([])
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [editingCourt, setEditingCourt] = useState<any>(null)
+  const [editingCourt, setEditingCourt] = useState<Court | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [formData, setFormData] = useState({
     name: "",
-    sport: "",
-    pricing: "",
+    sportType: "",
+    pricePerHour: "",
     startTime: "",
     endTime: "",
+    timeSlotPricing: [
+      { start: '', end: '', price: '' }
+    ]
   })
   const router = useRouter()
 
@@ -71,59 +71,147 @@ export default function CourtManagementPage() {
     }
 
     const parsedUser = JSON.parse(user)
-  if (parsedUser.role !== "owner") {
+    if (parsedUser.role !== "owner") {
       router.push("/login")
       return
     }
 
     setUserData(parsedUser)
+
+    // Fetch courts for this owner
+    const fetchCourts = async () => {
+      try {
+        const response = await fetch(`/api/courts?ownerId=${parsedUser.userId}`)
+        if (!response.ok) throw new Error('Failed to fetch courts')
+        const data = await response.json()
+        setCourts(data.courts || [])
+      } catch (error) {
+        console.error('Error fetching courts:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCourts()
   }, [router])
 
-  const handleAddCourt = () => {
-    const newCourt = {
-      id: courts.length + 1,
-      name: formData.name,
-      sport: formData.sport,
-      pricing: Number.parseInt(formData.pricing),
-      operatingHours: `${formData.startTime} - ${formData.endTime}`,
-      status: "Active",
+  const handleAddCourt = async () => {
+    if (!userData?.selectedFacility?._id) {
+      alert('Please select a facility first')
+      return
     }
-    setCourts([...courts, newCourt])
-    setFormData({ name: "", sport: "", pricing: "", startTime: "", endTime: "" })
-    setIsAddModalOpen(false)
+
+    try {
+      const response = await fetch('/api/courts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          sportType: formData.sportType,
+          pricing: {
+            hourlyRate: Number(formData.pricePerHour),
+            timeSlotPricing: formData.timeSlotPricing.filter(slot => slot.start && slot.end && slot.price)
+          },
+          operatingHours: {
+            start: formData.startTime,
+            end: formData.endTime,
+          },
+          venue: userData.selectedFacility._id,
+          status: 'active',
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to create court')
+      }
+
+      const newCourt = await response.json()
+      setCourts([...courts, newCourt])
+      setFormData({ name: "", sportType: "", pricePerHour: "", startTime: "", endTime: "", timeSlotPricing: [{ start: '', end: '', price: '' }] })
+      setIsAddModalOpen(false)
+    } catch (error: any) {
+      console.error('Error adding court:', error)
+      alert(error.message)
+    }
   }
 
-  const handleEditCourt = (court: any) => {
+  const handleEditCourt = (court: Court) => {
     setEditingCourt(court)
     setFormData({
       name: court.name,
-      sport: court.sport,
-      pricing: court.pricing.toString(),
-      startTime: court.operatingHours.split(" - ")[0],
-      endTime: court.operatingHours.split(" - ")[1],
+      sportType: court.sportType,
+      pricePerHour: court.pricePerHour.toString(),
+      startTime: court.operatingHours.start,
+      endTime: court.operatingHours.end,
+      timeSlotPricing: (court.pricing && Array.isArray(court.pricing.timeSlotPricing))
+        ? court.pricing.timeSlotPricing.map((slot: any) => ({
+            start: slot.start || '',
+            end: slot.end || '',
+            price: slot.price?.toString() || ''
+          }))
+        : [{ start: '', end: '', price: '' }]
     })
   }
 
-  const handleUpdateCourt = () => {
-    setCourts(
-      courts.map((court) =>
-        court.id === editingCourt.id
-          ? {
-              ...court,
-              name: formData.name,
-              sport: formData.sport,
-              pricing: Number.parseInt(formData.pricing),
-              operatingHours: `${formData.startTime} - ${formData.endTime}`,
-            }
-          : court,
-      ),
-    )
-    setEditingCourt(null)
-    setFormData({ name: "", sport: "", pricing: "", startTime: "", endTime: "" })
+  const handleUpdateCourt = async () => {
+    if (!editingCourt) return
+
+    try {
+      const response = await fetch(`/api/courts`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          courtId: editingCourt._id,
+          name: formData.name,
+          sportType: formData.sportType,
+          pricing: {
+            hourlyRate: Number(formData.pricePerHour),
+          },
+          operatingHours: {
+            start: formData.startTime,
+            end: formData.endTime,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to update court')
+      }
+
+      const updatedCourt = await response.json()
+      setCourts(courts.map((c) => (c._id === editingCourt._id ? updatedCourt : c)))
+      setEditingCourt(null)
+  setFormData({ name: "", sportType: "", pricePerHour: "", startTime: "", endTime: "", timeSlotPricing: [{ start: '', end: '', price: '' }] })
+    } catch (error: any) {
+      console.error('Error updating court:', error)
+      alert(error.message)
+    }
   }
 
-  const handleDeleteCourt = (courtId: number) => {
-    setCourts(courts.filter((court) => court.id !== courtId))
+  const handleDeleteCourt = async (courtId: string) => {
+    if (!confirm('Are you sure you want to delete this court?')) return
+
+    try {
+      const response = await fetch(`/api/courts?courtId=${courtId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete court')
+      }
+
+      setCourts(courts.filter((court) => court._id !== courtId))
+    } catch (error: any) {
+      console.error('Error deleting court:', error)
+      alert(error.message)
+    }
   }
 
   if (!userData) {
@@ -174,8 +262,8 @@ export default function CourtManagementPage() {
                   Sport Type
                 </Label>
                 <Select
-                  value={formData.sport}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, sport: value }))}
+                  value={formData.sportType}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, sportType: value }))}
                 >
                   <SelectTrigger className="border-gray-300">
                     <SelectValue placeholder="Select sport type" />
@@ -190,18 +278,78 @@ export default function CourtManagementPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pricing" className="text-gray-700">
+                <Label htmlFor="pricePerHour" className="text-gray-700">
                   Pricing per Hour (₹)
                 </Label>
                 <Input
-                  id="pricing"
+                  id="pricePerHour"
                   type="number"
-                  value={formData.pricing}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, pricing: e.target.value }))}
+                  value={formData.pricePerHour}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, pricePerHour: e.target.value }))}
                   placeholder="Enter hourly rate"
                   className="border-gray-300"
                 />
               </div>
+              {/* Time Slot Pricing */}
+              <div className="space-y-2">
+                <Label className="text-gray-700">Time Slot Pricing</Label>
+                {formData.timeSlotPricing.map((slot, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2">
+                    <Input
+                      type="time"
+                      value={slot.start}
+                      onChange={e => {
+                        const newSlots = [...formData.timeSlotPricing];
+                        newSlots[idx].start = e.target.value;
+                        setFormData(prev => ({ ...prev, timeSlotPricing: newSlots }));
+                      }}
+                      placeholder="Start"
+                      className="border-gray-300 w-24"
+                    />
+                    <Input
+                      type="time"
+                      value={slot.end}
+                      onChange={e => {
+                        const newSlots = [...formData.timeSlotPricing];
+                        newSlots[idx].end = e.target.value;
+                        setFormData(prev => ({ ...prev, timeSlotPricing: newSlots }));
+                      }}
+                      placeholder="End"
+                      className="border-gray-300 w-24"
+                    />
+                    <Input
+                      type="number"
+                      value={slot.price}
+                      onChange={e => {
+                        const newSlots = [...formData.timeSlotPricing];
+                        newSlots[idx].price = e.target.value;
+                        setFormData(prev => ({ ...prev, timeSlotPricing: newSlots }));
+                      }}
+                      placeholder="Price"
+                      className="border-gray-300 w-24"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData(prev => ({ ...prev, timeSlotPricing: prev.timeSlotPricing.filter((_, i) => i !== idx) }))}
+                      className="border-gray-300 text-red-600"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData(prev => ({ ...prev, timeSlotPricing: [...prev.timeSlotPricing, { start: '', end: '', price: '' }] }))}
+                  className="border-gray-300"
+                >
+                  Add Time Slot
+                </Button>
+              </div>
+              {/* Operating Hours */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startTime" className="text-gray-700">
@@ -253,25 +401,25 @@ export default function CourtManagementPage() {
         <CardContent>
           <div className="space-y-4">
             {courts.map((court) => (
-              <div key={court.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+              <div key={court._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                 <div className="flex-1">
                   <h4 className="font-semibold text-gray-900">{court.name}</h4>
                   <div className="flex items-center space-x-4 mt-2">
                     <Badge variant="outline" className="border-gray-300 text-gray-700">
-                      {court.sport}
+                      {court.sportType}
                     </Badge>
-                    <span className="text-sm text-gray-600">{formatInr(court.pricing)}/hour</span>
-                    <span className="text-sm text-gray-600">{court.operatingHours}</span>
+                    <span className="text-sm text-gray-600">{formatInr(court.pricePerHour)}/hour</span>
+                    <span className="text-sm text-gray-600">{court.operatingHours.start} - {court.operatingHours.end}</span>
                     <Badge
-                      variant={court.status === "Active" ? "default" : "secondary"}
-                      className={court.status === "Active" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}
+                      variant={court.status === "active" ? "default" : "secondary"}
+                      className={court.status === "active" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}
                     >
                       {court.status}
                     </Badge>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Dialog open={editingCourt?.id === court.id} onOpenChange={(open) => !open && setEditingCourt(null)}>
+                  <Dialog open={editingCourt?._id === court._id} onOpenChange={(open) => !open && setEditingCourt(null)}>
                     <DialogTrigger asChild>
                       <Button
                         variant="outline"
@@ -304,8 +452,8 @@ export default function CourtManagementPage() {
                             Sport Type
                           </Label>
                           <Select
-                            value={formData.sport}
-                            onValueChange={(value) => setFormData((prev) => ({ ...prev, sport: value }))}
+                            value={formData.sportType}
+                            onValueChange={(value) => setFormData((prev) => ({ ...prev, sportType: value }))}
                           >
                             <SelectTrigger className="border-gray-300">
                               <SelectValue />
@@ -326,8 +474,8 @@ export default function CourtManagementPage() {
                           <Input
                             id="editPricing"
                             type="number"
-                            value={formData.pricing}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, pricing: e.target.value }))}
+                            value={formData.pricePerHour}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, pricePerHour: e.target.value }))}
                             className="border-gray-300"
                           />
                         </div>
@@ -375,7 +523,7 @@ export default function CourtManagementPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDeleteCourt(court.id)}
+                    onClick={() => handleDeleteCourt(court._id)}
                     className="border-red-300 text-red-700 bg-transparent hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />

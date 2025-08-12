@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,117 +15,260 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Search, Eye, UserCheck, UserX } from "lucide-react"
+import { Search, Eye, UserCheck, UserX, RefreshCw, AlertCircle } from "lucide-react"
 
 interface User {
   id: string
+  _id: string  // Keep for backwards compatibility
   name: string
   email: string
-  role: "User" | "Facility Owner"
-  status: "Active" | "Banned"
-  joinDate: string
-  lastActive: string
-  bookingHistory: {
-    facility: string
-    date: string
-    sport: string
-    status: string
-  }[]
+  role: string
+  status: string
+  phone?: string
+  createdAt: string
+  updatedAt?: string
+  lastActiveAt?: string
 }
 
-const usersData: User[] = [
-  {
-    id: "1",
-    name: "Alice Johnson",
-    email: "alice.johnson@email.com",
-    role: "User",
-    status: "Active",
-    joinDate: "2023-06-15",
-    lastActive: "2024-01-20",
-    bookingHistory: [
-      { facility: "Elite Sports Complex", date: "2024-01-18", sport: "Basketball", status: "Completed" },
-      { facility: "Community Center", date: "2024-01-15", sport: "Tennis", status: "Completed" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Bob Smith",
-    email: "bob.smith@email.com",
-    role: "Facility Owner",
-    status: "Active",
-    joinDate: "2023-03-22",
-    lastActive: "2024-01-19",
-    bookingHistory: [],
-  },
-  {
-    id: "3",
-    name: "Carol Davis",
-    email: "carol.davis@email.com",
-    role: "User",
-    status: "Banned",
-    joinDate: "2023-08-10",
-    lastActive: "2024-01-05",
-    bookingHistory: [{ facility: "Premier Tennis Club", date: "2024-01-03", sport: "Tennis", status: "Cancelled" }],
-  },
-  {
-    id: "4",
-    name: "David Wilson",
-    email: "david.wilson@email.com",
-    role: "User",
-    status: "Active",
-    joinDate: "2023-11-05",
-    lastActive: "2024-01-21",
-    bookingHistory: [
-      { facility: "Elite Sports Complex", date: "2024-01-20", sport: "Volleyball", status: "Completed" },
-      { facility: "Community Center", date: "2024-01-17", sport: "Basketball", status: "Completed" },
-      { facility: "Premier Tennis Club", date: "2024-01-14", sport: "Tennis", status: "Completed" },
-    ],
-  },
-  {
-    id: "5",
-    name: "Emma Brown",
-    email: "emma.brown@email.com",
-    role: "Facility Owner",
-    status: "Active",
-    joinDate: "2023-04-18",
-    lastActive: "2024-01-20",
-    bookingHistory: [],
-  },
-]
+interface UserManagementResponse {
+  success: boolean
+  users: User[]
+  pagination: {
+    currentPage: number
+    totalPages: number
+    totalUsers: number
+    limit: number
+  }
+  error?: string
+}
 
 export default function UserManagement() {
-  const [users, setUsers] = useState(usersData)
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [roleFilter, setRoleFilter] = useState("All")
+  const [roleFilter, setRoleFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [showBookingHistory, setShowBookingHistory] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{
+    userId: string
+    action: string
+    userName: string
+  } | null>(null)
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = roleFilter === "All" || user.role === roleFilter
-    return matchesSearch && matchesRole
-  })
+  // Fetch users from backend
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '10',
+        search: searchTerm,
+        role: roleFilter,
+        status: statusFilter
+      })
+      
+      const response = await fetch(`/api/admin/users?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch users')
+      }
+      
+      const data: UserManagementResponse = await response.json()
+      
+      if (data.success) {
+        setUsers(data.users)
+        setTotalPages(data.pagination.totalPages)
+        setTotalUsers(data.pagination.totalUsers)
+      } else {
+        throw new Error(data.error || 'Failed to fetch users')
+      }
+    } catch (err: any) {
+      console.error('Error fetching users:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, searchTerm, roleFilter, statusFilter])
 
-  const toggleUserStatus = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === userId ? { ...user, status: user.status === "Active" ? "Banned" : ("Active" as const) } : user,
-      ),
+  // Handle user actions (ban/unban, role change)
+  const handleUserAction = async (userId: string, action: string, newRole?: string) => {
+    try {
+      setActionLoading(userId)
+      setError(null)
+      setSuccessMessage(null)
+      
+      console.log(`Attempting to ${action} user ${userId}`, { action, newRole })
+      console.log('Auth token available:', !!localStorage.getItem('token'))
+      
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({ 
+          action,
+          newRole 
+        }),
+      })
+      
+      console.log('Response status:', response.status)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+      
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: Failed to update user`;
+        try {
+          const responseText = await response.text();
+          console.error('API Error Response:', responseText);
+          
+          // Try to parse as JSON
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (parseError) {
+            // Not JSON, use the text as is if it's not HTML
+            if (!responseText.includes('<!DOCTYPE html>')) {
+              errorMessage = responseText || errorMessage;
+            }
+          }
+        } catch (readError) {
+          console.error('Failed to read response:', readError);
+        }
+        
+        console.error('User update failed:', errorMessage);
+        setError(errorMessage);
+        setActionLoading(null);
+        return;
+      }
+      
+      const result = await response.json()
+      console.log('API Response:', result)
+      
+      if (result.success) {
+        setSuccessMessage(result.message || `User ${action} successful`)
+        // Refresh users list
+        await fetchUsers()
+        setSelectedUser(null)
+        setConfirmAction(null)
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        console.error('API returned failure:', result.error);
+        setError(result.error || 'Failed to update user');
+      }
+    } catch (err: any) {
+      console.error('Error updating user:', err)
+      setError(err.message || 'Failed to update user')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // Handle ban action with confirmation
+  const handleBanUser = (user: User) => {
+    setConfirmAction({
+      userId: user.id,
+      action: user.status === "active" ? "ban" : "unban",
+      userName: user.name
+    })
+  }
+
+  // Direct ban/unban without confirmation (single click)
+  const handleDirectBanUser = async (user: User) => {
+    const action = user.status === "active" ? "ban" : "unban";
+    await handleUserAction(user.id, action);
+  }
+
+  // Load users on component mount and when filters change
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
+
+  // Debounce search input
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setCurrentPage(1) // Reset to first page on new search
+    }, 500)
+    
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm])
+
+  if (loading && users.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-600 mt-2">Loading user data...</p>
+        </div>
+        <div className="flex items-center justify-center p-8">
+          <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      </div>
     )
   }
 
-  const viewBookingHistory = (user: User) => {
-    setSelectedUser(user)
-    setShowBookingHistory(true)
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-600 mt-2">Error loading user data</p>
+        </div>
+        <Card className="border-red-200">
+          <CardContent className="p-6">
+            <div className="flex items-center text-red-600">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              {error}
+            </div>
+            <Button 
+              onClick={fetchUsers} 
+              className="mt-4"
+              variant="outline"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-        <p className="text-gray-600 mt-2">Manage users and facility owners</p>
+      {/* Success Message */}
+      {successMessage && (
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="p-4">
+            <div className="flex items-center text-green-800">
+              <UserCheck className="h-5 w-5 mr-2" />
+              {successMessage}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-600 mt-2">Manage users, roles, and access permissions</p>
+        </div>
+        <div className="text-sm text-gray-500">
+          Total Users: {totalUsers}
+        </div>
       </div>
 
       {/* Search and Filter */}
@@ -149,11 +292,34 @@ export default function UserManagement() {
                 <SelectValue placeholder="Filter by role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="All">All Roles</SelectItem>
-                <SelectItem value="User">User</SelectItem>
-                <SelectItem value="Facility Owner">Facility Owner</SelectItem>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="owner">Facility Owner</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="banned">Banned</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button 
+              onClick={fetchUsers} 
+              variant="outline"
+              disabled={loading}
+            >
+              {loading ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -161,13 +327,19 @@ export default function UserManagement() {
       {/* User List Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Users ({filteredUsers.length})</CardTitle>
+          <CardTitle>Users ({users.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User Name</TableHead>
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+              <span className="ml-2 text-gray-600">Loading users...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
@@ -177,30 +349,43 @@ export default function UserManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
+              {users.map((user, index) => (
+                <TableRow key={user.id || `user-${index}`}>
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <Badge variant={user.role === "Facility Owner" ? "default" : "secondary"}>{user.role}</Badge>
+                    <Badge variant={user.role === "owner" ? "default" : user.role === "admin" ? "destructive" : "secondary"}>
+                      {user.role === "owner" ? "Facility Owner" : user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={user.status === "Active" ? "default" : "destructive"}>{user.status}</Badge>
+                    <Badge variant={user.status === "active" ? "default" : "destructive"}>
+                      {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                    </Badge>
                   </TableCell>
-                  <TableCell>{user.joinDate}</TableCell>
-                  <TableCell>{user.lastActive}</TableCell>
+                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    {user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleDateString() : 'Never'}
+                  </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => viewBookingHistory(user)}>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setSelectedUser(user)}
+                      >
                         <Eye className="h-4 w-4 mr-1" />
-                        History
+                        View
                       </Button>
                       <Button
-                        variant={user.status === "Active" ? "destructive" : "default"}
+                        variant={user.status === "active" ? "destructive" : "default"}
                         size="sm"
-                        onClick={() => toggleUserStatus(user.id)}
+                        onClick={() => handleDirectBanUser(user)}
+                        disabled={actionLoading === user.id}
                       >
-                        {user.status === "Active" ? (
+                        {actionLoading === user.id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : user.status === "active" ? (
                           <>
                             <UserX className="h-4 w-4 mr-1" />
                             Ban
@@ -218,89 +403,189 @@ export default function UserManagement() {
               ))}
             </TableBody>
           </Table>
+          )}
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  Previous
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages || loading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Booking History Modal */}
-      <Dialog open={showBookingHistory} onOpenChange={setShowBookingHistory}>
+      {/* User Details Modal */}
+      <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Booking History - {selectedUser?.name}</DialogTitle>
-            <DialogDescription>Complete booking history for this user</DialogDescription>
+            <DialogTitle>User Details - {selectedUser?.name}</DialogTitle>
+            <DialogDescription>Manage user information and permissions</DialogDescription>
           </DialogHeader>
 
           {selectedUser && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium">Email</p>
                   <p className="text-sm text-gray-600">{selectedUser.email}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Role</p>
-                  <Badge variant={selectedUser.role === "Facility Owner" ? "default" : "secondary"}>
-                    {selectedUser.role}
+                  <p className="text-sm font-medium">Phone</p>
+                  <p className="text-sm text-gray-600">{selectedUser.phone || 'Not provided'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Current Role</p>
+                  <Badge variant={selectedUser.role === "owner" ? "default" : selectedUser.role === "admin" ? "destructive" : "secondary"}>
+                    {selectedUser.role === "owner" ? "Facility Owner" : selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1)}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Status</p>
-                  <Badge variant={selectedUser.status === "Active" ? "default" : "destructive"}>
-                    {selectedUser.status}
+                  <Badge variant={selectedUser.status === "active" ? "default" : "destructive"}>
+                    {selectedUser.status.charAt(0).toUpperCase() + selectedUser.status.slice(1)}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Member Since</p>
-                  <p className="text-sm text-gray-600">{selectedUser.joinDate}</p>
+                  <p className="text-sm text-gray-600">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Last Active</p>
+                  <p className="text-sm text-gray-600">
+                    {selectedUser.lastActiveAt ? new Date(selectedUser.lastActiveAt).toLocaleDateString() : 'Never'}
+                  </p>
                 </div>
               </div>
 
-              {selectedUser.bookingHistory.length > 0 ? (
-                <div>
-                  <h4 className="font-medium mb-3">Recent Bookings</h4>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Facility</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Sport</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedUser.bookingHistory.map((booking, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{booking.facility}</TableCell>
-                          <TableCell>{booking.date}</TableCell>
-                          <TableCell>{booking.sport}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                booking.status === "Completed"
-                                  ? "default"
-                                  : booking.status === "Cancelled"
-                                    ? "destructive"
-                                    : "secondary"
-                              }
-                            >
-                              {booking.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              {/* Role Management */}
+              <div className="space-y-4">
+                <h4 className="font-medium">Role Management</h4>
+                <div className="flex space-x-2">
+                  <Button
+                    variant={selectedUser.role === "user" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleUserAction(selectedUser.id, "changeRole", "user")}
+                    disabled={actionLoading === selectedUser.id}
+                  >
+                    Make User
+                  </Button>
+                  <Button
+                    variant={selectedUser.role === "owner" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleUserAction(selectedUser.id, "changeRole", "owner")}
+                    disabled={actionLoading === selectedUser.id}
+                  >
+                    Make Facility Owner
+                  </Button>
+                  <Button
+                    variant={selectedUser.role === "admin" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleUserAction(selectedUser.id, "changeRole", "admin")}
+                    disabled={actionLoading === selectedUser.id}
+                  >
+                    Make Admin
+                  </Button>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No booking history available</p>
+              </div>
+
+              {/* Account Actions */}
+              <div className="space-y-4">
+                <h4 className="font-medium">Account Actions</h4>
+                <div className="flex space-x-2">
+                  <Button
+                    variant={selectedUser.status === "active" ? "destructive" : "default"}
+                    size="sm"
+                    onClick={() => handleBanUser(selectedUser)}
+                    disabled={actionLoading === selectedUser.id}
+                  >
+                    {actionLoading === selectedUser.id ? (
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    ) : selectedUser.status === "active" ? (
+                      <UserX className="h-4 w-4 mr-2" />
+                    ) : (
+                      <UserCheck className="h-4 w-4 mr-2" />
+                    )}
+                    {selectedUser.status === "active" ? "Ban User" : "Unban User"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleUserAction(selectedUser.id, "suspend")}
+                    disabled={actionLoading === selectedUser.id || selectedUser.status === "suspended"}
+                  >
+                    Suspend Account
+                  </Button>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBookingHistory(false)}>
+            <Button variant="outline" onClick={() => setSelectedUser(null)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog for Ban/Unban */}
+      <Dialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Action</DialogTitle>
+            <DialogDescription>
+              {confirmAction && (
+                <>
+                  Are you sure you want to {confirmAction.action} <strong>{confirmAction.userName}</strong>?
+                  {confirmAction.action === 'ban' && (
+                    <span className="block mt-2 text-red-600 text-sm">
+                      This user will no longer be able to access the platform.
+                    </span>
+                  )}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmAction(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={confirmAction?.action === 'ban' ? 'destructive' : 'default'}
+              onClick={() => {
+                if (confirmAction) {
+                  handleUserAction(confirmAction.userId, confirmAction.action)
+                }
+              }}
+              disabled={!!actionLoading}
+            >
+              {actionLoading ? (
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Confirm {confirmAction?.action}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -20,6 +20,8 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'owner', 'admin'], default: 'user' },
   phone: String,
   avatar: { type: String, default: '/placeholder-user.jpg' },
+  status: { type: String, enum: ['active', 'inactive', 'banned'], default: 'active' },
+  isBanned: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -93,7 +95,9 @@ async function seed() {
       email: 'admin@quickcourt.test',
       password: 'Admin@123',
       role: 'admin',
-      phone: '+919876543210'
+      phone: '+919876543210',
+      status: 'active',
+      isBanned: false
     });
     await adminUser.save();
     console.log('✅ Admin user created:');
@@ -107,7 +111,9 @@ async function seed() {
       email: 'raj.patel@quickcourt.test',
       password: 'Owner@123',
       role: 'owner',
-      phone: '+919876543211'
+      phone: '+919876543211',
+      status: 'active',
+      isBanned: false
     });
     await owner1.save();
 
@@ -116,7 +122,9 @@ async function seed() {
       email: 'priya.sharma@quickcourt.test',
       password: 'Owner@123',
       role: 'owner',
-      phone: '+919876543212'
+      phone: '+919876543212',
+      status: 'active',
+      isBanned: false
     });
     await owner2.save();
     console.log('✅ Facility owners created');
@@ -129,21 +137,36 @@ async function seed() {
         email: 'arjun.singh@quickcourt.test',
         password: 'User@123',
         role: 'user',
-        phone: '+919876543213'
+        phone: '+919876543213',
+        status: 'active',
+        isBanned: false
       },
       {
         name: 'Sneha Gupta',
         email: 'sneha.gupta@quickcourt.test',
         password: 'User@123',
         role: 'user',
-        phone: '+919876543214'
+        phone: '+919876543214',
+        status: 'active',
+        isBanned: false
       },
       {
         name: 'Vikram Reddy',
         email: 'vikram.reddy@quickcourt.test',
         password: 'User@123',
         role: 'user',
-        phone: '+919876543215'
+        phone: '+919876543215',
+        status: 'inactive',
+        isBanned: true
+      },
+      {
+        name: 'Banned User',
+        email: 'banned.user@quickcourt.test',
+        password: 'User@123',
+        role: 'user',
+        phone: '+919876543216',
+        status: 'banned',
+        isBanned: true
       }
     ];
 
@@ -251,7 +274,9 @@ async function seed() {
     console.log('\n📋 Login Credentials:');
     console.log('👤 Admin: admin@quickcourt.test / Admin@123');
     console.log('🏢 Owner: raj.patel@quickcourt.test / Owner@123');
-    console.log('👥 User: arjun.singh@quickcourt.test / User@123');
+    console.log('👥 User (Active): arjun.singh@quickcourt.test / User@123');
+    console.log('❌ User (Inactive/Banned): vikram.reddy@quickcourt.test / User@123');
+    console.log('🚫 User (Banned): banned.user@quickcourt.test / User@123');
     
     process.exit(0);
   } catch (error) {

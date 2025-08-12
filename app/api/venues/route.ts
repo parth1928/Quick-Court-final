@@ -24,6 +24,12 @@ export async function GET(request: Request) {
       query.sports = { $regex: new RegExp(sport, 'i') };
     }
 
+    // Filter by owner ID
+    const ownerId = searchParams.get('ownerId');
+    if (ownerId) {
+      query.owner = ownerId;
+    }
+
     // Basic pagination
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -33,36 +39,48 @@ export async function GET(request: Request) {
 
     let venues;
     if (view === 'card') {
-      // force only approved for card listings
-      if (!query.approvalStatus) query.approvalStatus = 'approved';
+      // force only approved for card listings (unless owner is filtering their own venues)
+      if (!query.approvalStatus && !ownerId) {
+        query.approvalStatus = 'approved';
+      }
       venues = await Venue.find(query)
-        .select('_id name shortLocation address description startingPrice rating reviewCount sports amenities images photos status approvalStatus')
+        .select('_id name shortLocation address description startingPrice rating reviewCount sports amenities images photos status approvalStatus operatingHours owner')
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
         .lean();
+        
       const cards = (venues as any[]).map(v => ({
-        id: v._id.toString(),
+        _id: v._id.toString(),
         name: v.name,
+        description: v.description || '',
         location: v.shortLocation || (v.address ? `${v.address.city || ''}${v.address.city && v.address.state ? ', ' : ''}${v.address.state || ''}` : ''),
+        shortLocation: v.shortLocation || v.address?.city,
         sports: v.sports || [],
-        price: v.startingPrice || 0,
+        sportsOffered: v.sports || [],
+        startingPrice: v.startingPrice || 0,
+        pricePerHour: v.startingPrice || 0,
         rating: v.rating || 0,
-        reviews: v.reviewCount || 0,
-        image: (v.images && v.images[0]) || (v.photos && v.photos[0]) || '/placeholder.jpg',
+        images: v.images || v.photos || [],
+        image: (v.images && v.images[0]) || (v.photos && v.photos[0]) || '/placeholder.svg',
+        address: v.address || { city: v.shortLocation },
+        operatingHours: v.operatingHours || { open: '06:00', close: '22:00' },
+        approvalStatus: v.approvalStatus,
+        status: v.status || v.approvalStatus,
+        isActive: v.isActive !== false,
         amenities: (v.amenities || []).slice(0, 5),
-        description: v.description || ''
+        totalReviews: v.reviewCount || 0
       }));
+      
       const total = await Venue.countDocuments(query);
       return NextResponse.json({ venues: cards, pagination: { total, page, pages: Math.ceil(total / limit) } });
     }
 
-  venues = await Venue.find(query)
-    .populate('owner', 'name email phone')
-    // .populate('courts') // removed: Venue schema has no embedded courts array; courts are separate collection
-    .skip(skip)
-    .limit(limit)
-    .sort({ createdAt: -1 });
+    venues = await Venue.find(query)
+      .populate('owner', 'name email phone')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
 
     const total = await Venue.countDocuments(query);
 
@@ -95,18 +113,34 @@ export const POST = withAuth(async (request: Request, user: any) => {
 
     await dbConnect();
     const data = await request.json();
+    console.log('📥 Venue create payload received:', {
+      name: data.name,
+      sportsOffered: data.sportsOffered,
+      sports: data.sports,
+      pricePerHour: data.pricePerHour,
+      startingPrice: data.startingPrice,
+      addressKeys: data.address ? Object.keys(data.address) : null,
+      geoLocation: data.geoLocation,
+      ownerFromToken: user.userId,
+      userRole: user.role
+    });
 
     // Add the owner to the venue data
     data.owner = user.userId;
     
     const venue = await Venue.create(data);
+    console.log('✅ Venue created:', venue._id.toString());
     
     return NextResponse.json(venue);
   } catch (error: any) {
     console.error('Error creating venue:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    if (error?.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((e: any) => e.message);
+      return NextResponse.json({ error: 'Validation failed', details: messages }, { status: 400 });
+    }
+    if (error?.code === 11000) {
+      return NextResponse.json({ error: 'Duplicate key error', key: error.keyValue }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }, ['owner', 'admin']);

@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import Notifications from "@/components/notifications"
 
 interface UserData {
   name: string
@@ -23,11 +24,16 @@ interface UserData {
 export function Header() {
   const router = useRouter()
   const [userData, setUserData] = useState<UserData | null>(null)
+  const [token, setToken] = useState<string | null>(null)
 
   useEffect(() => {
     const user = localStorage.getItem("user")
+    const authToken = localStorage.getItem("token") || localStorage.getItem("authToken")
     if (user) {
       setUserData(JSON.parse(user))
+    }
+    if (authToken) {
+      setToken(authToken)
     }
   }, [])
 
@@ -54,9 +60,8 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
-        </Button>
+        {/* Notifications */}
+        <Notifications token={token ?? undefined} />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

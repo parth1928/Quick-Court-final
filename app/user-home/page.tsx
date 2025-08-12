@@ -59,14 +59,15 @@ function UserHomePage() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load venues')
         if (Array.isArray(data.venues)) {
-          const mapped: PopularVenue[] = data.venues.map((v: any) => ({
-            id: v.id,
+          const mapped: PopularVenue[] = data.venues.map((v: any, i: number) => ({
+            // Some APIs may return _id instead of id; ensure a stable unique id
+            id: (v.id || v._id || `venue-${i}`).toString(),
             name: v.name,
             location: v.location,
-            sports: v.sports || [],
-            price: `₹${v.price}/hour`,
-            rating: v.rating || 0,
-            image: v.image || '/placeholder.jpg'
+            sports: Array.isArray(v.sports) ? v.sports : (v.sport ? [v.sport] : []),
+            price: `₹${v.price || v.startingPrice || 0}/hour`,
+            rating: v.rating || v.reviewRating || 0,
+            image: v.image || (Array.isArray(v.images) ? v.images[0] : undefined) || '/placeholder.jpg'
           }))
           setPopularVenues(mapped)
           setFilteredVenues(mapped)
@@ -119,7 +120,7 @@ function UserHomePage() {
           </p>
           <div className="flex flex-wrap gap-4">
             <Button asChild size="lg" variant="secondary">
-              <Link href="/games">Book Now</Link>
+              <Link href="/games">Games</Link>
             </Button>
             <Button
               asChild
@@ -213,7 +214,7 @@ function UserHomePage() {
                 <p className="text-gray-600 text-sm mb-4">Find and book sports venues for your games</p>
                 <Button className="w-full bg-green-600 hover:bg-green-700">
                   <Plus className="h-4 w-4 mr-2" />
-                  Book Now
+                  Games
                 </Button>
               </CardContent>
             </Card>
@@ -286,11 +287,14 @@ function UserHomePage() {
                   {venue.location}
                 </p>
                 <div className="flex flex-wrap gap-1 mb-3">
-                  {venue.sports.map((sport) => (
-                    <Badge key={sport} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
-                      {sport}
-                    </Badge>
-                  ))}
+                  {venue.sports.map((sport) => {
+                    const sportKey = `${venue.id}-${sport}`
+                    return (
+                      <Badge key={sportKey} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
+                        {sport}
+                      </Badge>
+                    )
+                  })}
                 </div>
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-semibold text-gray-900">{venue.price}</span>

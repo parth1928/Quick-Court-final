@@ -26,6 +26,7 @@ interface UserData {
 const adminItems = [
   { title: 'Dashboard', url: '/admin-dashboard', icon: LayoutDashboard },
   { title: 'Facility Approval', url: '/facility-approval', icon: Building2 },
+  { title: 'Venue Approval', url: '/venue-approval', icon: Building2 },
   { title: 'User Management', url: '/user-management', icon: Users },
   { title: 'Reports / Moderation', url: '/reports', icon: Shield },
   { title: 'Profile', url: '/profile', icon: User },
@@ -167,16 +168,19 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={pathname === item.url}>
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {items.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={pathname === item.url}>
+                      <Link href={item.url}>
+                        <IconComponent />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

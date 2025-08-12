@@ -9,78 +9,188 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Calendar, Clock, Search, Filter } from "lucide-react"
+import { Calendar, Clock, Search, Filter, RefreshCw } from "lucide-react"
 
-const bookingsData = [
-  {
-    id: 1,
-    userName: "John Smith",
-    userEmail: "john.smith@email.com",
-    court: "Basketball Court A",
-    facility: "Elite Sports Complex",
-    date: "2024-01-25",
-    time: "4:00 PM - 5:00 PM",
-    status: "Booked",
-    amount: 25,
-    bookingDate: "2024-01-20",
-  },
-  {
-    id: 2,
-    userName: "Sarah Johnson",
-    userEmail: "sarah.johnson@email.com",
-    court: "Tennis Court 1",
-    facility: "Elite Sports Complex",
-    date: "2024-01-24",
-    time: "2:00 PM - 3:00 PM",
-    status: "Completed",
-    amount: 30,
-    bookingDate: "2024-01-18",
-  },
-  {
-    id: 3,
-    userName: "Mike Wilson",
-    userEmail: "mike.wilson@email.com",
-    court: "Volleyball Court",
-    facility: "Community Center",
-    date: "2024-01-23",
-    time: "6:00 PM - 7:00 PM",
-    status: "Completed",
-    amount: 20,
-    bookingDate: "2024-01-19",
-  },
-  {
-    id: 4,
-    userName: "Emily Davis",
-    userEmail: "emily.davis@email.com",
-    court: "Tennis Court 2",
-    facility: "Elite Sports Complex",
-    date: "2024-01-22",
-    time: "10:00 AM - 11:00 AM",
-    status: "Cancelled",
-    amount: 30,
-    bookingDate: "2024-01-15",
-  },
-  {
-    id: 5,
-    userName: "David Brown",
-    userEmail: "david.brown@email.com",
-    court: "Basketball Court B",
-    facility: "Elite Sports Complex",
-    date: "2024-01-26",
-    time: "7:00 PM - 8:00 PM",
-    status: "Booked",
-    amount: 25,
-    bookingDate: "2024-01-21",
-  },
-]
+interface BookingData {
+  id: string
+  userName: string
+  userEmail: string
+  userPhone: string
+  court: string
+  courtType: string
+  facility: string
+  facilityLocation: string
+  date: string
+  time: string
+  status: string
+  amount: number
+  bookingDate: string
+  paymentStatus: string
+  paymentId: string | null
+  notes: string
+  checkInAt: Date | null
+  checkOutAt: Date | null
+  cancellationReason: string | null
+  canCancel: boolean
+  startTime: Date
+  endTime: Date
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface BookingSummary {
+  total: number
+  upcoming: number
+  completed: number
+  cancelled: number
+  revenue: number
+}
 
 export default function BookingOverviewPage() {
   const [userData, setUserData] = useState<any>(null)
-  const [bookings, setBookings] = useState(bookingsData)
+  const [bookings, setBookings] = useState<BookingData[]>([])
+  const [summary, setSummary] = useState<BookingSummary>({
+    total: 0,
+    upcoming: 0,
+    completed: 0,
+    cancelled: 0,
+    revenue: 0
+  })
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
   const [dateFilter, setDateFilter] = useState("All")
   const router = useRouter()
+
+  // Load bookings from API
+  const loadBookings = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/login')
+        return
+      }
+
+      console.log('🔄 Loading owner bookings...')
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://192.168.102.132:3000'
+      
+      // Build query parameters
+      const params = new URLSearchParams()
+      if (statusFilter !== 'All') params.append('status', statusFilter)
+      if (dateFilter !== 'All') params.append('dateFilter', dateFilter)
+      if (searchTerm.trim()) params.append('search', searchTerm.trim())
+
+      const url = `${baseUrl}/api/owner/bookings${params.toString() ? `?${params.toString()}` : ''}`
+      console.log('🔍 Request URL:', url)
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      console.log('📡 Response status:', response.status)
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login')
+          return
+        }
+        if (response.status === 403) {
+          router.push('/login')
+          return
+        }
+        throw new Error(`HTTP ${response.status}: Failed to load bookings`)
+      }
+
+      const result = await response.json()
+      console.log('📊 API Response:', result)
+
+      if (result.success) {
+        setBookings(result.data.bookings)
+        setSummary(result.data.summary)
+        console.log('✅ Loaded bookings:', result.data.bookings.length)
+      } else {
+        console.error('❌ API error:', result.error)
+        alert(`Error: ${result.error}`)
+      }
+    } catch (error: any) {
+      console.error('💥 Failed to load bookings:', error)
+      alert(`Failed to load bookings: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Debug function to test API connectivity
+  const testOwnerAPI = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        alert('No token found')
+        return
+      }
+
+      console.log('🧪 Testing owner API...')
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://192.168.102.132:3000'
+      
+      // Test debug endpoint
+      const debugResponse = await fetch(`${baseUrl}/api/owner/debug`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const debugResult = await debugResponse.json()
+      console.log('🧪 Debug API Response:', debugResult)
+      
+      if (debugResult.success) {
+        const { debug } = debugResult
+        console.log('👤 User ID:', debug.userId)
+        console.log('🏢 Facilities Count:', debug.facilitiesCount)
+        console.log('🏟️ Courts Count:', debug.courtsCount)
+        console.log('📅 Bookings Count:', debug.bookingsCount)
+        
+        if (debug.facilities && debug.facilities.length > 0) {
+          console.log('🏢 Facilities:', debug.facilities)
+        }
+        if (debug.courts && debug.courts.length > 0) {
+          console.log('🏟️ Courts:', debug.courts)
+        }
+        if (debug.bookings && debug.bookings.length > 0) {
+          console.log('📅 Bookings:', debug.bookings)
+        }
+
+        // Create detailed alert message
+        let message = `Debug Results:\n`
+        message += `• User ID: ${debug.userId}\n`
+        message += `• Role: ${debug.userRole}\n`
+        message += `• Facilities: ${debug.facilitiesCount}\n`
+        message += `• Courts: ${debug.courtsCount}\n`
+        message += `• Bookings: ${debug.bookingsCount}\n\n`
+        
+        if (debug.facilitiesCount === 0) {
+          message += `❌ No facilities found! You need to create facilities first.\n`
+        } else if (debug.courtsCount === 0) {
+          message += `❌ No courts found! Your facilities need courts to receive bookings.\n`
+        } else if (debug.bookingsCount === 0) {
+          message += `⚠️ No bookings found! Your facilities are set up but haven't received bookings yet.\n`
+        } else {
+          message += `✅ Everything looks good! Check console for detailed data.\n`
+        }
+        
+        alert(message)
+      } else {
+        alert(`Debug failed: ${debugResult.error}`)
+      }
+    } catch (error: any) {
+      console.error('💥 Test API error:', error)
+      alert(`Test failed: ${error.message}`)
+    }
+  }
 
   useEffect(() => {
     const user = localStorage.getItem("user")
@@ -90,48 +200,51 @@ export default function BookingOverviewPage() {
     }
 
     const parsedUser = JSON.parse(user)
-  if (parsedUser.role !== "owner") {
+    if (parsedUser.role !== "owner") {
       router.push("/login")
       return
     }
 
     setUserData(parsedUser)
+    loadBookings()
   }, [router])
 
-  const filteredBookings = bookings.filter((booking) => {
-    const matchesSearch =
-      booking.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.court.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.facility.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesStatus = statusFilter === "All" || booking.status === statusFilter
-
-    const matchesDate =
-      dateFilter === "All" ||
-      (dateFilter === "Today" && booking.date === "2024-01-25") ||
-      (dateFilter === "This Week" && new Date(booking.date) >= new Date("2024-01-22")) ||
-      (dateFilter === "This Month" && new Date(booking.date) >= new Date("2024-01-01"))
-
-    return matchesSearch && matchesStatus && matchesDate
-  })
+  // Reload when filters change
+  useEffect(() => {
+    if (userData) {
+      loadBookings()
+    }
+  }, [statusFilter, dateFilter, searchTerm])
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Booked":
-        return "bg-gray-900 text-white"
-      case "Completed":
-        return "bg-gray-100 text-gray-700"
-      case "Cancelled":
+    switch (status.toLowerCase()) {
+      case "confirmed":
+      case "booked":
+        return "bg-blue-100 text-blue-800"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
+      case "completed":
+        return "bg-green-100 text-green-800"
+      case "cancelled":
         return "bg-red-100 text-red-700"
       default:
         return "bg-gray-100 text-gray-700"
     }
   }
 
-  const getTotalRevenue = () => {
-    return filteredBookings
-      .filter((booking) => booking.status === "Completed")
-      .reduce((sum, booking) => sum + booking.amount, 0)
+  const getStatusDisplayText = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "confirmed":
+        return "Confirmed"
+      case "pending":
+        return "Pending"
+      case "completed":
+        return "Completed"
+      case "cancelled":
+        return "Cancelled"
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1)
+    }
   }
 
   if (!userData) {
@@ -156,29 +269,25 @@ export default function BookingOverviewPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-gray-200">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">{filteredBookings.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{summary.total}</div>
             <div className="text-sm text-gray-600">Total Bookings</div>
           </CardContent>
         </Card>
         <Card className="border-gray-200">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">
-              {filteredBookings.filter((b) => b.status === "Booked").length}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{summary.upcoming}</div>
             <div className="text-sm text-gray-600">Upcoming</div>
           </CardContent>
         </Card>
         <Card className="border-gray-200">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">
-              {filteredBookings.filter((b) => b.status === "Completed").length}
-            </div>
+            <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
             <div className="text-sm text-gray-600">Completed</div>
           </CardContent>
         </Card>
         <Card className="border-gray-200">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">{formatInr(getTotalRevenue())}</div>
+            <div className="text-2xl font-bold text-gray-900">{formatInr(summary.revenue)}</div>
             <div className="text-sm text-gray-600">Revenue</div>
           </CardContent>
         </Card>
@@ -187,9 +296,32 @@ export default function BookingOverviewPage() {
       {/* Filters */}
       <Card className="border-gray-200">
         <CardHeader>
-          <CardTitle className="text-gray-900 flex items-center">
-            <Filter className="h-5 w-5 mr-2" />
-            Filters
+          <CardTitle className="text-gray-900 flex items-center justify-between">
+            <div className="flex items-center">
+              <Filter className="h-5 w-5 mr-2" />
+              Filters
+            </div>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={testOwnerAPI}
+                className="flex items-center space-x-2 bg-yellow-50 border-yellow-300 text-yellow-700"
+              >
+                <span>🧪</span>
+                <span>Test API</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={loadBookings}
+                disabled={loading}
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -209,9 +341,10 @@ export default function BookingOverviewPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All Status</SelectItem>
-                <SelectItem value="Booked">Booked</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="Cancelled">Cancelled</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -232,73 +365,124 @@ export default function BookingOverviewPage() {
       {/* Bookings Table */}
       <Card className="border-gray-200">
         <CardHeader>
-          <CardTitle className="text-gray-900">Booking Records</CardTitle>
+          <CardTitle className="text-gray-900">Booking Records ({bookings.length} total)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-gray-700">User</TableHead>
-                  <TableHead className="text-gray-700">Court</TableHead>
-                  <TableHead className="text-gray-700">Date & Time</TableHead>
-                  <TableHead className="text-gray-700">Status</TableHead>
-                  <TableHead className="text-gray-700">Amount</TableHead>
-                  <TableHead className="text-gray-700">Booked On</TableHead>
-                  <TableHead className="text-gray-700">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredBookings.map((booking) => (
-                  <TableRow key={booking.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-gray-900">{booking.userName}</div>
-                        <div className="text-sm text-gray-600">{booking.userEmail}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-gray-900">{booking.court}</div>
-                        <div className="text-sm text-gray-600">{booking.facility}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <Calendar className="h-4 w-4" />
-                        <span>{booking.date}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <Clock className="h-4 w-4" />
-                        <span>{booking.time}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
-                    </TableCell>
-                    <TableCell className="font-semibold text-gray-900">{formatInr(booking.amount)}</TableCell>
-                    <TableCell className="text-sm text-gray-600">{booking.bookingDate}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 bg-transparent">
-                          View
-                        </Button>
-                        {booking.status === "Booked" && (
-                          <Button variant="outline" size="sm" className="border-red-300 text-red-700 bg-transparent">
-                            Cancel
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading bookings...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-gray-700">User</TableHead>
+                    <TableHead className="text-gray-700">Court & Facility</TableHead>
+                    <TableHead className="text-gray-700">Date & Time</TableHead>
+                    <TableHead className="text-gray-700">Status</TableHead>
+                    <TableHead className="text-gray-700">Amount</TableHead>
+                    <TableHead className="text-gray-700">Payment</TableHead>
+                    <TableHead className="text-gray-700">Booked On</TableHead>
+                    <TableHead className="text-gray-700">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {bookings.map((booking: BookingData) => (
+                    <TableRow key={booking.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium text-gray-900">{booking.userName}</div>
+                          <div className="text-sm text-gray-600">{booking.userEmail}</div>
+                          {booking.userPhone && (
+                            <div className="text-sm text-gray-500">{booking.userPhone}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium text-gray-900">{booking.court}</div>
+                          <div className="text-sm text-gray-600">{booking.facility}</div>
+                          {booking.courtType && (
+                            <div className="text-xs text-gray-500">{booking.courtType}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{booking.date}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          <Clock className="h-4 w-4" />
+                          <span>{booking.time}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(booking.status)}>
+                          {getStatusDisplayText(booking.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold text-gray-900">
+                        {formatInr(booking.amount)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className={`font-medium ${
+                            booking.paymentStatus === 'paid' ? 'text-green-600' : 
+                            booking.paymentStatus === 'failed' ? 'text-red-600' : 'text-yellow-600'
+                          }`}>
+                            {booking.paymentStatus?.charAt(0).toUpperCase() + booking.paymentStatus?.slice(1) || 'Pending'}
+                          </div>
+                          {booking.paymentId && (
+                            <div className="text-xs text-gray-500">{booking.paymentId}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">{booking.bookingDate}</TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 bg-transparent">
+                            View
+                          </Button>
+                          {booking.canCancel && (
+                            <Button variant="outline" size="sm" className="border-red-300 text-red-700 bg-transparent">
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-          {filteredBookings.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No bookings found matching your criteria.</p>
+          {!loading && bookings.length === 0 && (
+            <div className="text-center py-12">
+              <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Calendar className="h-12 w-12 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+              <p className="text-gray-500 mb-6">
+                Your facilities haven't received any bookings yet, or you may need to set up your facilities first.
+              </p>
+              <div className="space-y-3">
+                <Button 
+                  variant="outline" 
+                  onClick={testOwnerAPI}
+                  className="bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                >
+                  🧪 Run Diagnostics
+                </Button>
+                <div className="text-sm text-gray-400">
+                  Click "Run Diagnostics" to check your setup, or contact support if you need help setting up facilities.
+                </div>
+              </div>
             </div>
           )}
         </CardContent>

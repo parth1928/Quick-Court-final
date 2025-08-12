@@ -97,7 +97,7 @@ function validateMatchInput(data: any): { isValid: boolean; errors: string[]; va
       prizeAmount: data.prizeAmount ? parseFloat(String(data.prizeAmount)) : 0,
       courtFees: data.courtFees ? parseFloat(String(data.courtFees)) : 0,
       description: data.description?.trim() || undefined,
-      rules: Array.isArray(data.rules) ? data.rules.filter(r => r?.trim()).map(r => r.trim()) : []
+      rules: Array.isArray(data.rules) ? data.rules.filter((r: any) => r?.trim()).map((r: any) => r.trim()) : []
     }
   };
 }
@@ -196,16 +196,24 @@ export const GET = withAuth(async (request: Request, user: any) => {
 // POST /api/matches - Create a new match
 export const POST = withAuth(async (request: Request, user: any) => {
   console.log('🚀 Match creation API called');
+  console.log('👤 Authenticated user:', {
+    userId: user.userId,
+    email: user.email,
+    role: user.role,
+    name: user.name
+  });
   
   try {
-    // Check user role
-    if (user.role !== 'user') {
+    // Check user role - allow users and owners to create matches
+    if (user.role !== 'user' && user.role !== 'owner') {
       console.log('❌ Unauthorized role:', user.role);
       return NextResponse.json(
-        { error: 'Only users can create matches' },
+        { error: 'Only users and owners can create matches' },
         { status: 403 }
       );
     }
+    
+    console.log('✅ User role authorized:', user.role);
     
     // Parse request body
     let requestData;
@@ -225,7 +233,11 @@ export const POST = withAuth(async (request: Request, user: any) => {
     if (!validation.isValid) {
       console.log('❌ Validation errors:', validation.errors);
       return NextResponse.json(
-        { error: validation.errors.join('; ') },
+        { 
+          error: validation.errors.join('; '),
+          errors: validation.errors,
+          receivedData: requestData
+        },
         { status: 400 }
       );
     }
@@ -296,7 +308,7 @@ export const POST = withAuth(async (request: Request, user: any) => {
           'auto-create-community-rec': {
             name: 'Community Recreation Center',
             description: 'Community sports facility',
-            sports: ['Basketball', 'Volleyball', 'Football', 'Cricket', 'Table Tennis'],
+            sports: ['Basketball', 'Volleyball', 'Football', 'Cricket', 'Table Tennis', 'Badminton'],
             address: {
               street: '789 Community Road',
               city: 'Bangalore',
@@ -367,7 +379,7 @@ export const POST = withAuth(async (request: Request, user: any) => {
           }
         };
         
-        const venueTemplate = autoCreateVenues[validData.venueId];
+        const venueTemplate = (autoCreateVenues as any)[validData.venueId];
         if (venueTemplate) {
           console.log('🌱 Creating auto venue:', venueTemplate.name);
           
@@ -378,7 +390,7 @@ export const POST = withAuth(async (request: Request, user: any) => {
           }).lean();
           
           if (existingVenue) {
-            console.log('✅ Using existing venue:', existingVenue.name, existingVenue._id);
+            console.log('✅ Using existing venue:', (existingVenue as any).name, (existingVenue as any)._id);
             venueDoc = existingVenue;
           } else {
             try {
@@ -408,7 +420,7 @@ export const POST = withAuth(async (request: Request, user: any) => {
               console.log('🔧 Creating venue with data:', venueData.name);
               venueDoc = await Venue.create(venueData);
               console.log('✅ Auto-created venue:', venueDoc._id);
-            } catch (createError) {
+            } catch (createError: any) {
               console.error('❌ Failed to auto-create venue:', createError);
               console.error('❌ Venue creation error details:', createError.message);
               if (createError.errors) {
@@ -416,14 +428,14 @@ export const POST = withAuth(async (request: Request, user: any) => {
               }
               
               // If it's still a duplicate error, try to find the existing venue
-              if (createError.message.includes('E11000') || createError.message.includes('duplicate')) {
+              if (createError.message && (createError.message.includes('E11000') || createError.message.includes('duplicate'))) {
                 console.log('🔍 Duplicate error, trying to find existing venue...');
                 const fallbackVenue = await Venue.findOne({ 
                   name: venueTemplate.name 
                 }).lean();
                 
                 if (fallbackVenue) {
-                  console.log('✅ Found existing venue after duplicate error:', fallbackVenue._id);
+                  console.log('✅ Found existing venue after duplicate error:', (fallbackVenue as any)._id);
                   venueDoc = fallbackVenue;
                 } else {
                   return NextResponse.json(
@@ -520,7 +532,7 @@ export const POST = withAuth(async (request: Request, user: any) => {
           
           if (!courtDoc) {
             console.log('🌱 No courts found for venue, creating auto court');
-            const courtName = courtNameMap[validData.courtId] || `${validData.sport} Court 1`;
+            const courtName = (courtNameMap as any)[validData.courtId] || `${validData.sport} Court 1`;
             
             try {
               courtDoc = await Court.create({
@@ -553,7 +565,7 @@ export const POST = withAuth(async (request: Request, user: any) => {
               console.log('⚠️ Continuing without court (optional field)');
             }
           } else {
-            console.log('✅ Using existing court:', courtDoc._id, courtDoc.name);
+            console.log('✅ Using existing court:', (courtDoc as any)._id, (courtDoc as any).name);
           }
         } else {
           // Check if the courtId is a valid ObjectId format
@@ -586,7 +598,7 @@ export const POST = withAuth(async (request: Request, user: any) => {
             );
           }
           
-          console.log('✅ Court found:', courtDoc.name);
+          console.log('✅ Court found:', (courtDoc as any).name);
         }
         
       } catch (courtError) {
@@ -722,4 +734,4 @@ export const POST = withAuth(async (request: Request, user: any) => {
       { status: 500 }
     );
   }
-}, ['user']);
+}, ['user', 'owner']); // Allow both users and owners to create matches

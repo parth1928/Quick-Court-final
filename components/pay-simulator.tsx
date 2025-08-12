@@ -23,6 +23,7 @@ interface PaySimulatorProps {
   amount: number
   descriptor: string
   buttonLabel?: string
+  disabled?: boolean
   onSuccess: (transaction: PaymentTransaction) => void
   onFailure: () => void
 }
@@ -31,6 +32,7 @@ export default function PaySimulator({
   amount,
   descriptor,
   buttonLabel = "Pay Now",
+  disabled = false,
   onSuccess,
   onFailure,
 }: PaySimulatorProps) {
@@ -81,7 +83,7 @@ export default function PaySimulator({
         onClick={() => setShowPaymentForm(true)}
         className="w-full"
         size="lg"
-        disabled={isProcessing}
+        disabled={isProcessing || disabled}
       >
         <CreditCard className="h-4 w-4 mr-2" />
         {buttonLabel}
@@ -204,14 +206,14 @@ export default function PaySimulator({
               variant="outline"
               onClick={() => setShowPaymentForm(false)}
               className="flex-1"
-              disabled={isProcessing}
+              disabled={isProcessing || disabled}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               className="flex-1"
-              disabled={isProcessing || !paymentMethod}
+              disabled={isProcessing || disabled || !paymentMethod}
             >
               {isProcessing ? (
                 <>

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -10,16 +10,19 @@ export const ROLES = {
   ADMIN: 'admin',
 } as const;
 
-// Define the JWT payload type
-interface JWTPayload {
+// Define the JWT payload interface
+export interface JWTPayload {
   userId: string;
-  role: typeof ROLES[keyof typeof ROLES];
   email: string;
-  iat?: number;
-  exp?: number;
+  role: typeof ROLES[keyof typeof ROLES];
 }
 
-export async function validateToken(request: Request) {
+// Define the auth context which includes the token
+export interface AuthContext extends JWTPayload {
+  token: string;
+}
+
+async function validateToken(request: NextRequest): Promise<AuthContext | null> {
   try {
     // Prefer Authorization header, fall back to cookie
     let token: string | undefined;
@@ -35,7 +38,10 @@ export async function validateToken(request: Request) {
         if (match) token = decodeURIComponent(match.split('=')[1]);
       }
     }
-    if (!token) return null;
+    if (!token) {
+      console.log('No token found in request');
+      return null;
+    }
 
     // Additional validation for token format
     if (!token.includes('.') || token.split('.').length !== 3) {
@@ -43,6 +49,7 @@ export async function validateToken(request: Request) {
       return null;
     }
 
+    console.log('Attempting to verify token:', token.substring(0, 20) + '...');
     const decoded = jwt.verify(token, JWT_SECRET!) as unknown;
     
     // Validate the decoded token has the required fields
@@ -51,35 +58,55 @@ export async function validateToken(request: Request) {
         typeof payload === 'object' &&
         typeof payload.userId === 'string' &&
         typeof payload.email === 'string' &&
-        Object.values(ROLES).includes(payload.role as any)
+        typeof payload.role === 'string' &&
+        Object.values(ROLES).includes(payload.role as typeof ROLES[keyof typeof ROLES])
       );
     };
 
     if (!isValidPayload(decoded)) {
+      console.error('Invalid token payload structure:', {
+        hasUserId: typeof (decoded as any)?.userId === 'string',
+        hasEmail: typeof (decoded as any)?.email === 'string', 
+        hasRole: typeof (decoded as any)?.role === 'string',
+        actualPayload: decoded
+      });
       throw new Error('Invalid token payload');
     }
 
-    return decoded;
+    // Return the AuthContext with both payload and token
+    return {
+      ...decoded,
+      token
+    };
   } catch (error) {
     console.error('Token validation error:', error);
     return null;
   }
 }
 
-export function withAuth(handler: Function, allowedRoles?: string[]) {
-  return async (request: Request) => {
+export type AuthenticatedHandler = (
+  req: NextRequest,
+  context: AuthContext
+) => Promise<NextResponse>;
+
+type Role = typeof ROLES[keyof typeof ROLES];
+
+export function withAuth(handler: AuthenticatedHandler, allowedRoles?: Role[]) {
+  return async (request: NextRequest) => {
     try {
       // Log incoming request details for debugging
-      console.log('Auth request headers:', {
-        auth: request.headers.get('Authorization'),
-        cookie: request.headers.get('cookie')
+      console.log('🔐 Auth request received:', {
+        method: request.method,
+        url: request.url,
+        authHeader: request.headers.get('Authorization')?.substring(0, 30) + '...',
+        userAgent: request.headers.get('user-agent')?.substring(0, 50) + '...'
       });
 
       // Validate token
       const user = await validateToken(request);
 
       if (!user) {
-        console.log('Token validation failed');
+        console.log('❌ Token validation failed - no user returned');
         return NextResponse.json(
           { error: 'Unauthorized - Invalid or missing token' },
           { 
@@ -91,20 +118,19 @@ export function withAuth(handler: Function, allowedRoles?: string[]) {
         );
       }
 
-      console.log('Token validated for user:', { id: user.userId, role: user.role });
+      console.log('✅ Token validated for user:', { id: user.userId, role: user.role, email: user.email });
 
-      // Check roles if specified
-      if (allowedRoles && allowedRoles.length > 0) {
-        if (!allowedRoles.includes(user.role)) {
-          console.log('Role check failed:', { required: allowedRoles, actual: user.role });
-          return NextResponse.json(
-            { error: `Forbidden - Required role: ${allowedRoles.join(' or ')}` },
-            { status: 403 }
-          );
-        }
+      // Optional role checking
+      if (allowedRoles && allowedRoles.length && !allowedRoles.includes(user.role as Role)) {
+        console.log('❌ Role check failed:', { userRole: user.role, allowedRoles });
+        return NextResponse.json(
+          { error: 'Forbidden - insufficient role' },
+          { status: 403 }
+        );
       }
 
-      // Add user to request for handler
+      // Invoke handler
+      console.log('🚀 Calling authenticated handler...');
       const response = await handler(request, user);
       
       // Ensure response is a NextResponse
@@ -116,6 +142,8 @@ export function withAuth(handler: Function, allowedRoles?: string[]) {
       const headers = new Headers(nextResponse.headers);
       headers.set('Access-Control-Allow-Credentials', 'true');
       
+      console.log('✅ Auth handler completed successfully');
+      
       // Return response with headers
       return new NextResponse(nextResponse.body, {
         status: nextResponse.status,
@@ -123,7 +151,7 @@ export function withAuth(handler: Function, allowedRoles?: string[]) {
         headers
       });
     } catch (error) {
-      console.error('Auth middleware error:', error);
+      console.error('💥 Auth middleware error:', error);
       return NextResponse.json(
         { error: 'Internal server error' },
         { status: 500 }

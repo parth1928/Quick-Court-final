@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import dbConnect from "@/lib/db/connect"
-import { withAuth, ROLES } from "@/lib/auth"
+import { withAuth, ROLES, AuthContext } from "@/lib/auth"
 import Facility from "@/models/Facility"
 
-export const GET = withAuth(async (req: Request, user: any) => {
+export const GET = withAuth(async (req: NextRequest, user: AuthContext) => {
   try {
     await dbConnect()
 
@@ -22,7 +22,7 @@ export const GET = withAuth(async (req: Request, user: any) => {
   }
 }, [ROLES.OWNER])
 
-export const POST = withAuth(async (req: Request, user: any) => {
+export const POST = withAuth(async (req: NextRequest, user: AuthContext) => {
   try {
     const body = await req.json()
     await dbConnect()
@@ -31,7 +31,8 @@ export const POST = withAuth(async (req: Request, user: any) => {
     const facility = await Facility.create({
       ...body,
       owner: user.userId,
-      status: 'Active'  // Set default status
+      status: 'pending',  // New facilities need approval
+      approvalStatus: 'pending'  // Set approval status
     })
 
     return NextResponse.json(facility, { status: 201 })

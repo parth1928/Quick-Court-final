@@ -55,7 +55,11 @@ bookingSchema.pre('save', async function(next) {
   if (this.startTime && !this.startTs) this.startTs = this.startTime;
   if (this.endTime && !this.endTs) this.endTs = this.endTime;
 
-  if (this.isModified('startTime') || this.isModified('endTime') || this.isModified('startTs') || this.isModified('endTs')) {
+  // Skip overlap validation for fallback courts completely
+  const fallbackCourtIds = ["507f1f77bcf86cd799439021", "507f1f77bcf86cd799439022", "507f1f77bcf86cd799439023"];
+  const isFallbackCourt = fallbackCourtIds.includes(this.court?.toString());
+  
+  if (!isFallbackCourt && (this.isModified('startTime') || this.isModified('endTime') || this.isModified('startTs') || this.isModified('endTs'))) {
     const overlappingBooking = await mongoose.model('Booking').findOne({
       court: this.court,
       _id: { $ne: this._id },

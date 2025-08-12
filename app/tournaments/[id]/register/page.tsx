@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
+import PaySimulator from "@/components/pay-simulator"
 import { 
   ArrowLeft, Trophy, Users, Calendar, MapPin, 
   DollarSign, AlertCircle, CheckCircle, User,
@@ -108,13 +109,40 @@ export default function TournamentRegistrationPage() {
     }
 
     const parsedUser = JSON.parse(user)
-  if (parsedUser.role !== "user") {
+    if (parsedUser.role !== "user") {
       router.push("/login")
       return
     }
 
     setUserData(parsedUser)
-    setTournament(mockTournament)
+    
+    // Fetch real tournament data from API
+    const fetchTournament = async () => {
+      try {
+        const response = await fetch(`/api/tournaments/${params.id}`)
+        if (!response.ok) {
+          throw new Error('Tournament not found')
+        }
+        const data = await response.json()
+        
+        // Transform API data to match component interface
+        const tournamentData = {
+          ...data.tournament,
+          id: data.tournament._id,
+          currentParticipants: data.tournament.participants?.length || 0,
+          isTeamTournament: data.tournament.category?.includes('v') || data.tournament.sport === 'Basketball' || data.tournament.sport === 'Football'
+        }
+        
+        setTournament(tournamentData)
+        
+      } catch (error) {
+        console.error('Error fetching tournament:', error)
+        // Fallback to mock data if API fails
+        setTournament(mockTournament)
+      }
+    }
+    
+    fetchTournament()
     
     // Pre-fill user data
     setFormData(prev => ({
@@ -124,7 +152,7 @@ export default function TournamentRegistrationPage() {
       captainName: parsedUser.name || "",
       captainEmail: parsedUser.email || ""
     }))
-  }, [router])
+  }, [router, params.id])
 
   const updateFormData = (field: string, value: any) => {
     setFormData(prev => ({
@@ -179,30 +207,52 @@ export default function TournamentRegistrationPage() {
     }
 
     setLoading(true)
-    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Save registration to localStorage (in real app, this would be an API call)
-      const registrations = JSON.parse(localStorage.getItem("tournamentRegistrations") || "[]")
-      registrations.push(parseInt(params.id as string))
-      localStorage.setItem("tournamentRegistrations", JSON.stringify(registrations))
-      
+      // Store registration in the database via API
+      const res = await fetch(`/api/tournaments/${params.id}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participantType: formData.participantType,
+          teamName: formData.teamName,
+          teamMembers: formData.teamMembers,
+          individualName: formData.individualName,
+          individualEmail: formData.individualEmail,
+          individualPhone: formData.individualPhone,
+          captainName: formData.captainName,
+          captainEmail: formData.captainEmail,
+          captainPhone: formData.captainPhone,
+          emergencyContact: formData.emergencyContact,
+          emergencyPhone: formData.emergencyPhone,
+          medicalConditions: formData.medicalConditions,
+          previousTournaments: formData.previousTournaments,
+          paymentMethod: formData.paymentMethod,
+          cardholderName: formData.cardholderName,
+          cardNumber: formData.cardNumber,
+          expiryDate: formData.expiryDate,
+          cvv: formData.cvv,
+          termsAccepted: formData.termsAccepted,
+          waiverAccepted: formData.waiverAccepted,
+          emailUpdates: formData.emailUpdates
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Registration failed');
+      }
       toast({
         title: "Registration Successful!",
         description: "You have been successfully registered for the tournament."
-      })
-      
-      router.push(`/tournaments/${params.id}`)
-    } catch (error) {
+      });
+      router.push(`/tournaments/${params.id}`);
+    } catch (error: any) {
       toast({
         title: "Registration Failed",
-        description: "There was an error processing your registration. Please try again.",
+        description: error.message || "There was an error processing your registration. Please try again.",
         variant: "destructive"
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -682,13 +732,177 @@ export default function TournamentRegistrationPage() {
             </Button>
             
             {step === totalSteps ? (
-              <Button
-                onClick={handleSubmit}
-                disabled={loading || !validateStep(step)}
-                className="min-w-[120px]"
-              >
-                {loading ? "Processing..." : `Pay ₹${tournament.entryFee.toLocaleString('en-IN')} & Register`}
-              </Button>
+              // Payment Integration for Final Step
+              !validateStep(step) ? (
+                <Button disabled className="min-w-[120px]">
+                  Complete Required Fields
+                </Button>
+              ) : (
+                <PaySimulator
+                  amount={tournament.entryFee}
+                  descriptor={`Tournament Registration - ${tournament.name}`}
+                  buttonLabel={`Pay ₹${tournament.entryFee.toLocaleString('en-IN')} & Register`}
+                  onSuccess={async (tx) => {
+                    try {
+                      // Handle successful payment and registration
+                      console.log("Tournament registration payment successful:", tx)
+                      
+                      // Get authentication token
+                      const getAuthToken = () => {
+                        let token = localStorage.getItem('token')
+                        if (token) return token
+                        
+                        const value = `; ${document.cookie}`;
+                        const parts = value.split(`; authToken=`);
+                        if (parts.length === 2) {
+                          const cookieValue = parts.pop()?.split(';').shift();
+                          if (cookieValue) return decodeURIComponent(cookieValue);
+                        }
+                        return null;
+                      }
+                      
+                      const token = getAuthToken();
+                      if (!token) {
+                        toast({
+                          title: "Authentication Error",
+                          description: "Please login to complete registration",
+                          variant: "destructive",
+                        })
+                        router.push('/login')
+                        return
+                      }
+
+                      // Store registration in the database via API
+                      const registrationPayload = {
+                        participantType: formData.participantType,
+                        teamName: formData.teamName,
+                        teamMembers: formData.teamMembers,
+                        individualName: formData.individualName,
+                        individualEmail: formData.individualEmail,
+                        individualPhone: formData.individualPhone,
+                        captainName: formData.captainName,
+                        captainEmail: formData.captainEmail,
+                        captainPhone: formData.captainPhone,
+                        emergencyContact: formData.emergencyContact,
+                        emergencyPhone: formData.emergencyPhone,
+                        medicalConditions: formData.medicalConditions,
+                        previousTournaments: formData.previousTournaments,
+                        paymentMethod: "card",
+                        paymentId: tx.id,
+                        paymentStatus: "paid",
+                        entryFee: tournament.entryFee,
+                        termsAccepted: formData.termsAccepted,
+                        waiverAccepted: formData.waiverAccepted,
+                        emailUpdates: formData.emailUpdates
+                      }
+
+                      console.log('Registering for tournament with payload:', registrationPayload)
+
+                      const res = await fetch(`/api/tournaments/${params.id}/register`, {
+                        method: 'POST',
+                        headers: { 
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(registrationPayload)
+                      });
+                      
+                      const result = await res.json();
+                      
+                      if (res.ok && result.success) {
+                        // Show success message
+                        toast({
+                          title: "🎉 Registration Successful!",
+                          description: "You have been registered for the tournament! Redirecting to confirmation...",
+                        })
+
+                        // Store confirmation in booking confirmation API
+                        try {
+                          await fetch('/api/bookings/confirm', {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                              bookingId: result.data?.registrationId || `REG_${Date.now()}`,
+                              transactionId: tx.id,
+                              amount: tournament.entryFee,
+                              paymentMethod: 'Credit Card',
+                              type: 'tournament',
+                              venueName: tournament.venue,
+                              courtName: tournament.name,
+                              sport: tournament.sport,
+                              date: new Date().toLocaleDateString(),
+                              time: 'Tournament Registration',
+                              duration: 'Full Tournament',
+                              notes: `Tournament: ${tournament.name} - ${formData.participantType === 'team' ? `Team: ${formData.teamName}` : `Player: ${formData.individualName}`}`
+                            })
+                          })
+                        } catch (confirmError) {
+                          console.log('Confirmation API error (non-critical):', confirmError)
+                        }
+
+                        // Redirect to payment completed page with tournament details
+                        const queryParams = new URLSearchParams({
+                          txId: tx.id,
+                          type: 'tournament',
+                          amount: tournament.entryFee.toString(),
+                          tournament: tournament.name,
+                          venue: tournament.venue,
+                          date: new Date().toLocaleDateString(),
+                          registrationId: result.data?.registrationId || '',
+                          participantType: formData.participantType,
+                          teamName: formData.teamName || '',
+                          playerName: formData.individualName || '',
+                          status: 'confirmed'
+                        })
+                        
+                        setTimeout(() => {
+                          window.location.href = `/payment-completed?${queryParams.toString()}`
+                        }, 1500)
+                      } else {
+                        console.error('Registration failed:', result)
+                        
+                        // Handle specific error cases
+                        if (result.error === 'Already registered') {
+                          toast({
+                            title: "Already Registered",
+                            description: "You are already registered for this tournament.",
+                            variant: "destructive"
+                          });
+                        } else if (result.error === 'Tournament full') {
+                          toast({
+                            title: "Tournament Full",
+                            description: "This tournament has reached maximum capacity.",
+                            variant: "destructive"
+                          });
+                        } else {
+                          toast({
+                            title: "Registration Failed",
+                            description: result.error || "Failed to register for tournament",
+                            variant: "destructive"
+                          });
+                        }
+                      }
+                    } catch (error: any) {
+                      console.error('Registration error:', error)
+                      toast({
+                        title: "Registration Error",
+                        description: "Failed to complete registration. Please try again.",
+                        variant: "destructive",
+                      })
+                    }
+                  }}
+                  onFailure={() => {
+                    toast({
+                      title: "Payment Failed",
+                      description: "Tournament registration payment failed. Please try again.",
+                      variant: "destructive",
+                    })
+                  }}
+                />
+              )
             ) : (
               <Button
                 onClick={() => setStep(step + 1)}

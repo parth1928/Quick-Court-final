@@ -1,12 +1,64 @@
+
 "use client"
 
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { formatInr } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Calendar, DollarSign, TrendingUp, Activity } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { 
+  Building2, 
+  Calendar, 
+  DollarSign, 
+  TrendingUp, 
+  Activity, 
+  Users,
+  Clock,
+  BarChart3,
+  PieChart,
+  RefreshCw
+} from "lucide-react"
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
+// Simple Chart Placeholder Component
+function ChartPlaceholder({ title, description, type, icon: Icon }: { 
+  title: string; 
+  description: string; 
+  type: string;
+  icon?: any;
+}) {
+  return (
+    <Card className="border-gray-200">
+      <CardHeader>
+        <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
+          {Icon && <Icon className="h-5 w-5" />}
+          {title}
+        </CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="h-64 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg flex items-center justify-center border border-gray-200">
+          <div className="text-center">
+            <div className="text-4xl mb-3">
+              {type === 'doughnut' && '🍩'}
+              {type === 'bar' && '📊'}
+              {type === 'line' && '📈'}
+              {type === 'area' && '📊'}
+            </div>
+            <p className="text-sm text-gray-600 font-medium">{description}</p>
+            <p className="text-xs text-gray-400 mt-1">Chart Type: {type.toUpperCase()}</p>
+            <Button variant="outline" size="sm" className="mt-3">
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Load Data
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 interface Booking {
   id: string
@@ -30,18 +82,121 @@ interface DashboardData {
   error?: string
 }
 
-function ChartPlaceholder({ title, description, type }: { title: string; description: string; type: string }) {
+
+// Booking and revenue chart state
+function BookingRevenueCharts({ token }: { token: string }) {
+  const [bookingData, setBookingData] = useState<any[]>([]);
+  const [revenueData, setRevenueData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCharts() {
+      setLoading(true);
+      try {
+        const [bookingsRes, revenueRes] = await Promise.all([
+          fetch('/api/owner/analytics?type=bookings', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/owner/analytics?type=revenue', { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        const bookingsJson = await bookingsRes.json();
+        const revenueJson = await revenueRes.json();
+        // Map backend data to chart format
+        setBookingData((bookingsJson.data || []).map((item: any) => ({
+          date: item.period || item.date || '',
+          bookings: item.bookings || item.count || 0
+        })));
+        setRevenueData((revenueJson.data || []).map((item: any) => ({
+          category: item.category || '',
+          amount: item.amount || 0
+        })));
+      } catch (e) {
+        setBookingData([]);
+        setRevenueData([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCharts();
+  }, [token]);
+
   return (
-    <Card className="border-gray-200">
-      <CardHeader>
-        <CardTitle className="text-lg text-gray-900">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-200">
-          <div className="text-center">
-            <Activity className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">{description}</p>
-            <p className="text-xs text-gray-400 mt-1">Chart Type: {type.toUpperCase()}</p>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Booking Trends</CardTitle>
+          <CardDescription>Bookings over time</CardDescription>
+        </CardHeader>
+        <CardContent style={{ height: 320 }}>
+          {loading ? (
+            <div className="h-64 bg-muted animate-pulse rounded" />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={bookingData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="bookings" stroke="#3B82F6" name="Bookings" />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Revenue by Category</CardTitle>
+          <CardDescription>Earnings by sport and venue</CardDescription>
+        </CardHeader>
+        <CardContent style={{ height: 320 }}>
+          {loading ? (
+            <div className="h-64 bg-muted animate-pulse rounded" />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="category" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="amount" fill="#10B981" name="Revenue" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Stats Card Component
+function StatCard({ title, value, change, icon: Icon, color = "blue" }: {
+  title: string;
+  value: string;
+  change?: string;
+  icon: any;
+  color?: string;
+}) {
+  const colorClasses = {
+    blue: "text-blue-600 bg-blue-100",
+    green: "text-green-600 bg-green-100",
+    purple: "text-purple-600 bg-purple-100",
+    orange: "text-orange-600 bg-orange-100",
+    red: "text-red-600 bg-red-100"
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-2xl font-bold text-gray-900">{value}</p>
+            {change && (
+              <p className="text-xs text-gray-500 mt-1">{change}</p>
+            )}
+          </div>
+          <div className={`p-3 rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}>
+            <Icon className="h-6 w-6" />
           </div>
         </div>
       </CardContent>
@@ -49,9 +204,17 @@ function ChartPlaceholder({ title, description, type }: { title: string; descrip
   )
 }
 
+interface UserData {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export default function FacilityDashboard() {
   const router = useRouter()
-  const [userData, setUserData] = useState<any>(null)
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     totalBookings: 0,
     monthlyBookings: 0,
@@ -68,15 +231,26 @@ export default function FacilityDashboard() {
       try {
         // Get user data first
         const userStr = localStorage.getItem("user");
-        const tokenStr = localStorage.getItem("token");
+        let tokenStr = localStorage.getItem("token");
 
-        if (!userStr || !tokenStr) {
-          console.error("No user data or token found");
+        if (!userStr) {
+          console.error("No user data found");
           router.push("/login");
           return;
         }
 
         const user = JSON.parse(userStr);
+        
+        // Try to get token from localStorage first, then from user object
+        if (!tokenStr && user.token) {
+          tokenStr = user.token;
+        }
+        
+        if (!tokenStr) {
+          console.error("No token found");
+          router.push("/login");
+          return;
+        }
         
         if (user.role !== "owner") {
           console.error("Unauthorized - User is not an owner");
@@ -121,21 +295,67 @@ export default function FacilityDashboard() {
     }
   }, [userData, router])
 
+  // Check authentication and user role
   useEffect(() => {
-    const user = localStorage.getItem("user")
-    if (!user) {
-      router.push("/login")
-      return
-    }
+    const checkAuth = async () => {
+      try {
+        const userStr = localStorage.getItem("user");
+        let token = localStorage.getItem("token");
 
-    const parsedUser = JSON.parse(user)
-    if (parsedUser.role !== "owner") {
-      router.push("/login")
-      return
-    }
+        if (!userStr) {
+          router.push("/login");
+          return;
+        }
+        
+        const user = JSON.parse(userStr);
+        
+        // Try to get token from localStorage first, then from user object
+        if (!token && user.token) {
+          token = user.token;
+        }
+        
+        if (!token) {
+          console.log("No auth data found, redirecting to login");
+          router.push("/login");
+          return;
+        }
 
-    setUserData(parsedUser)
-  }, [router])
+        const parsedUser = JSON.parse(userStr) as UserData;
+        
+        if (parsedUser.role !== "owner") {
+          console.log("User is not an owner, redirecting to login");
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+          router.push("/login");
+          return;
+        }
+
+        // Verify token is still valid
+        const response = await fetch("/api/auth/verify", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          console.log("Token verification failed, redirecting to login");
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+          router.push("/login");
+          return;
+        }
+
+        setUserData(parsedUser);
+      } catch (error) {
+        console.error("Auth check error:", error);
+        router.push("/login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   const kpiData = [
     {
@@ -191,7 +411,7 @@ export default function FacilityDashboard() {
     );
   }
 
-  if (!userData) {
+  if (isLoading || !userData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -229,18 +449,9 @@ export default function FacilityDashboard() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartPlaceholder
-          title="Daily/Weekly/Monthly Booking Trends"
-          description="Line chart showing booking patterns over time"
-          type="line"
-        />
-        <ChartPlaceholder 
-          title="Earnings Summary" 
-          description="Bar chart displaying revenue breakdown" 
-          type="bar" 
-        />
-      </div>
+      {userData && userData._id && (
+        <BookingRevenueCharts token={localStorage.getItem('token') || ''} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartPlaceholder

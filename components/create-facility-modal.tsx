@@ -49,7 +49,28 @@ export function CreateFacilityModal({ onSuccess }: CreateFacilityModalProps) {
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const userStr = localStorage.getItem("user");
+      let token = localStorage.getItem("token");
+      
+      if (!userStr) {
+        alert("Please log in again");
+        setIsLoading(false);
+        return;
+      }
+      
+      const user = JSON.parse(userStr);
+      
+      // Try to get token from localStorage first, then from user object
+      if (!token && user.token) {
+        token = user.token;
+      }
+      
+      if (!token) {
+        alert("Authentication required. Please log in again.");
+        setIsLoading(false);
+        return;
+      }
+      
       const response = await fetch("/api/facilities", {
         method: "POST",
         headers: {

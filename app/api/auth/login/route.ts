@@ -38,6 +38,37 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check if user is banned or suspended (check both status and legacy isBanned fields)
+    if (user.status === 'banned' || user.status === 'inactive' || user.isBanned === true) {
+      const banInfo = user.bannedAt ? ` on ${new Date(user.bannedAt).toLocaleDateString()}` : '';
+      const reason = user.banReason ? ` Reason: ${user.banReason}` : '';
+      
+      return NextResponse.json(
+        { 
+          error: 'Account Banned',
+          message: `Your account has been banned${banInfo}.${reason} To appeal this decision or request account restoration, please contact our support team at support@quickcourt.com with your account details.`,
+          type: 'banned',
+          contactEmail: 'support@quickcourt.com'
+        },
+        { status: 403 }
+      );
+    }
+
+    if (user.status === 'suspended') {
+      const suspensionInfo = user.suspendedAt ? ` on ${new Date(user.suspendedAt).toLocaleDateString()}` : '';
+      const reason = user.suspensionReason ? ` Reason: ${user.suspensionReason}` : '';
+      
+      return NextResponse.json(
+        { 
+          error: 'Account Suspended',
+          message: `Your account has been temporarily suspended${suspensionInfo}.${reason} Please contact support at support@quickcourt.com for more information.`,
+          type: 'suspended',
+          contactEmail: 'support@quickcourt.com'
+        },
+        { status: 403 }
+      );
+    }
+
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return NextResponse.json(
@@ -46,8 +77,12 @@ export async function POST(req: Request) {
       );
     }
 
+    // Update last login timestamp
+    user.lastLoginAt = new Date();
+    await user.save();
+
     const token = jwt.sign(
-      { userId: user._id, role: user.role, email: user.email },
+      { userId: user._id, role: user.role, email: user.email, status: user.status },
       JWT_SECRET,
       { expiresIn: '7d' }
     );

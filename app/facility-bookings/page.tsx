@@ -14,7 +14,26 @@ import { Calendar, Clock, User } from "lucide-react"
   useEffect(() => {
     async function fetchBookings() {
       try {
-        const token = localStorage.getItem("token");
+        const userStr = localStorage.getItem("user");
+        let token = localStorage.getItem("token");
+        
+        if (!userStr) {
+          console.error("No user data found");
+          return;
+        }
+        
+        const user = JSON.parse(userStr);
+        
+        // Try to get token from localStorage first, then from user object
+        if (!token && user.token) {
+          token = user.token;
+        }
+        
+        if (!token) {
+          console.error("No token found");
+          return;
+        }
+        
         const response = await fetch("/api/owner/dashboard", {
           headers: {
             Authorization: `Bearer ${token}`

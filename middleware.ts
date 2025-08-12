@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Public (unauthenticated) pages ONLY; everything else requires auth
-  const publicRoutes = ["/", "/login", "/signup", "/welcome", "/forgot-password"]
-  if (publicRoutes.includes(pathname)) return NextResponse.next()
+  const publicRoutes = ["/", "/login", "/signup", "/welcome", "/forgot-password", "/banned"]
+  if (publicRoutes.includes(pathname)) {
+    return NextResponse.next()
+  }
 
   const authToken = request.cookies.get('authToken')?.value
   if (!authToken) {
@@ -20,10 +22,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  // For banned user checks, we'll handle this in the API routes instead of middleware
+  // to avoid Edge Runtime compatibility issues with Mongoose
+
   // Explicit role route maps (exact or prefix checks)
   const adminOnly: ((p:string)=>boolean)[] = [
     p => p === '/admin-dashboard',
     p => p === '/facility-approval',
+    p => p === '/venue-approval',
     p => p === '/user-management',
     p => p === '/reports',
   ]

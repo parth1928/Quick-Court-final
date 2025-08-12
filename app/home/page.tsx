@@ -176,7 +176,7 @@ export default function HomePage() {
             </p>
             <div className="flex flex-wrap gap-4">
               <Button size="lg" variant="secondary">
-                Book Now
+                Games
               </Button>
               <Button
                 size="lg"
@@ -283,7 +283,7 @@ export default function HomePage() {
                           size="sm" 
                           className="w-full bg-white text-black hover:bg-gray-100"
                         >
-                          Book Now
+                          Games
                         </Button>
                       </div>
                     </CardHoverRevealContent>

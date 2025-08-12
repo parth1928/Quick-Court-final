@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { MapPin, Star, Phone, CalendarDays, Map } from "lucide-react"
 import { venues } from "@/lib/venuesData"
 
-const venue = venues.find(v => v.id === 8)
+const venue = venues.find(v => v.id === 6)
 
 export default function VenueDetailPage() {
   if (!venue) return <div className="p-8">Venue not found.</div>

@@ -60,7 +60,7 @@ const createTransporter = async () => {
 
   try {
     // Create transporter with validated config
-    cachedTransporter = nodemailer.createTransporter({
+    cachedTransporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
       secure: config.secure,

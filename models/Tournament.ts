@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 const participantSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   name: { type: String, required: true },
+  email: { type: String },
+  phone: { type: String },
+  avatar: { type: String },
   team: { type: String },
   registrationDate: { type: Date, default: Date.now }
 }, { _id: false });

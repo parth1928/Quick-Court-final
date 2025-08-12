@@ -38,12 +38,13 @@ export const verifyOTP = async (plainOTP: string, hashedOTP: string): Promise<bo
 };
 
 /**
- * Creates an expiry date for OTP (5 minutes from now)
- * @returns Date object 5 minutes in the future
+ * Creates an expiry date for OTP
+ * @param minutes - Number of minutes from now (default: 5)
+ * @returns Date object in the future
  */
-export const createOTPExpiry = (): Date => {
+export const createOTPExpiry = (minutes: number = 5): Date => {
   const expiry = new Date();
-  expiry.setMinutes(expiry.getMinutes() + 5);
+  expiry.setMinutes(expiry.getMinutes() + minutes);
   return expiry;
 };
 

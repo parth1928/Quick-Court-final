@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -15,217 +15,380 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { MapPin, Calendar, Eye, Check, X } from "lucide-react"
+import { MapPin, Calendar, Eye, Check, X, RefreshCw, Building, User, Clock } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface PendingFacility {
-  id: string
-  facilityName: string
-  ownerName: string
+  _id: string
+  name: string
+  owner: {
+    _id: string
+    name: string
+    email: string
+    phone?: string
+  }
   location: string
-  dateSubmitted: string
-  status: "pending" | "approved" | "rejected"
-  description: string
-  address: string
+  createdAt: string
+  approvalStatus: "pending" | "approved" | "rejected"
+  status: string
+  description?: string
+  address?: {
+    street?: string
+    city?: string
+    state?: string
+    postalCode?: string
+  }
   sports: string[]
   amenities: string[]
-  photos: string[]
+  image?: string
+  approvedAt?: string
+  rejectionReason?: string
 }
 
-const pendingFacilities: PendingFacility[] = [
-  {
-    id: "1",
-    facilityName: "Elite Sports Complex",
-    ownerName: "John Smith",
-    location: "Andheri, Mumbai",
-    dateSubmitted: "2024-01-15",
-    status: "pending",
-    description: "A state-of-the-art sports facility with multiple courts and modern amenities.",
-    address: "123 Sports Ave, Andheri, Mumbai 400053",
-    sports: ["Basketball", "Tennis", "Volleyball"],
-    amenities: ["Parking", "Locker Rooms", "Cafeteria", "Pro Shop"],
-    photos: [
-      "/placeholder.svg?height=200&width=300",
-      "/placeholder.svg?height=200&width=300",
-      "/placeholder.svg?height=200&width=300",
-    ],
-  },
-  {
-    id: "2",
-    facilityName: "Community Recreation Center",
-    ownerName: "Sarah Johnson",
-    location: "Koramangala, Bengaluru",
-    dateSubmitted: "2024-01-12",
-    status: "pending",
-    description: "Family-friendly recreation center serving the local community.",
-    address: "456 Community St, Koramangala, Bengaluru 560034",
-    sports: ["Basketball", "Badminton", "Table Tennis"],
-    amenities: ["Parking", "Locker Rooms", "Kids Area"],
-    photos: ["/placeholder.svg?height=200&width=300", "/placeholder.svg?height=200&width=300"],
-  },
-  {
-    id: "3",
-    facilityName: "Premier Tennis Club",
-    ownerName: "Mike Wilson",
-    location: "CP, Delhi",
-    dateSubmitted: "2024-01-10",
-    status: "pending",
-    description: "Exclusive tennis club with professional-grade courts.",
-    address: "789 Tennis Blvd, CP, Delhi 110001",
-    sports: ["Tennis"],
-    amenities: ["Parking", "Locker Rooms", "Pro Shop", "Restaurant"],
-    photos: ["/placeholder.svg?height=200&width=300", "/placeholder.svg?height=200&width=300"],
-  },
-]
-
-export default function FacilityApproval() {
+export default function FacilityApprovalPage() {
+  const { toast } = useToast()
+  const [facilities, setFacilities] = useState<PendingFacility[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedFacility, setSelectedFacility] = useState<PendingFacility | null>(null)
-  const [showDetailModal, setShowDetailModal] = useState(false)
-  const [showRejectModal, setShowRejectModal] = useState(false)
-  const [rejectComments, setRejectComments] = useState("")
-  const [facilities, setFacilities] = useState(pendingFacilities)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isActionDialogOpen, setIsActionDialogOpen] = useState(false)
+  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null)
+  const [rejectionReason, setRejectionReason] = useState("")
+  const [processing, setProcessing] = useState(false)
+  const [selectedStatus, setSelectedStatus] = useState<"pending" | "approved" | "rejected">("pending")
 
-  const handleApprove = (facilityId: string) => {
-    setFacilities((prev) =>
-      prev.map((facility) => (facility.id === facilityId ? { ...facility, status: "approved" as const } : facility)),
-    )
+  // Fetch facilities from API
+  const fetchFacilities = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/admin/facilities/approval?status=${selectedStatus}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch facilities')
+      }
+      
+      const data = await response.json()
+      setFacilities(data.facilities || [])
+    } catch (error: any) {
+      console.error('Error fetching facilities:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch facilities. Please try again.",
+        variant: "destructive"
+      })
+      setFacilities([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleReject = (facilityId: string) => {
-    setFacilities((prev) =>
-      prev.map((facility) => (facility.id === facilityId ? { ...facility, status: "rejected" as const } : facility)),
-    )
-    setShowRejectModal(false)
-    setRejectComments("")
-  }
+  // Fetch facilities on component mount and when status changes
+  useEffect(() => {
+    fetchFacilities()
+  }, [selectedStatus])
 
-  const openDetailModal = (facility: PendingFacility) => {
+  const handleAction = async (facility: PendingFacility, action: "approve" | "reject") => {
     setSelectedFacility(facility)
-    setShowDetailModal(true)
+    setActionType(action)
+    setIsActionDialogOpen(true)
+    setRejectionReason("")
   }
 
-  const openRejectModal = (facility: PendingFacility) => {
+  const confirmAction = async () => {
+    if (!selectedFacility || !actionType) return
+
+    try {
+      setProcessing(true)
+      
+      // Get admin ID from auth token cookie
+      let adminId = 'admin_user_id'; // fallback
+      try {
+        const authCookie = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('authToken='));
+        
+        if (authCookie) {
+          const token = authCookie.split('=')[1];
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          adminId = payload.userId;
+        }
+      } catch (e) {
+        console.log('Could not get admin ID from token, using fallback');
+      }
+      
+      const requestBody = {
+        action: actionType,
+        reason: actionType === 'reject' ? rejectionReason : undefined,
+        adminId: adminId
+      }
+
+      const response = await fetch(`/api/admin/facilities/approval/${selectedFacility._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update facility')
+      }
+
+      const result = await response.json()
+      
+      toast({
+        title: "Success",
+        description: result.message,
+      })
+
+      // Refresh the facilities list
+      await fetchFacilities()
+      
+      // Close dialog
+      setIsActionDialogOpen(false)
+      setSelectedFacility(null)
+      setActionType(null)
+      setRejectionReason("")
+      
+    } catch (error: any) {
+      console.error('Error updating facility:', error)
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleView = (facility: PendingFacility) => {
     setSelectedFacility(facility)
-    setShowRejectModal(true)
+    setIsViewDialogOpen(true)
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>
+      case "approved":
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Approved</Badge>
+      case "rejected":
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Rejected</Badge>
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const getFullAddress = (facility: PendingFacility) => {
+    if (!facility.address) return facility.location
+    
+    const { street, city, state, postalCode } = facility.address
+    const parts = [street, city, state, postalCode].filter(Boolean)
+    return parts.length > 0 ? parts.join(', ') : facility.location
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading facilities...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Facility Approval</h1>
-        <p className="text-gray-600 mt-2">Review and approve pending facility registrations</p>
+    <div className="container mx-auto px-4 py-8 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Facility Approval</h1>
+          <p className="text-muted-foreground">Review and approve facility registrations</p>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button
+            variant={selectedStatus === 'pending' ? 'default' : 'outline'}
+            onClick={() => setSelectedStatus('pending')}
+          >
+            Pending
+          </Button>
+          <Button
+            variant={selectedStatus === 'approved' ? 'default' : 'outline'}
+            onClick={() => setSelectedStatus('approved')}
+          >
+            Approved
+          </Button>
+          <Button
+            variant={selectedStatus === 'rejected' ? 'default' : 'outline'}
+            onClick={() => setSelectedStatus('rejected')}
+          >
+            Rejected
+          </Button>
+          <Button variant="outline" onClick={fetchFacilities}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
+      {/* Facilities Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Pending Registrations</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Building className="h-5 w-5" />
+            {selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} Facilities
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Facility Name</TableHead>
-                <TableHead>Owner Name</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Date Submitted</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {facilities.map((facility) => (
-                <TableRow key={facility.id}>
-                  <TableCell className="font-medium">{facility.facilityName}</TableCell>
-                  <TableCell>{facility.ownerName}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <MapPin className="h-4 w-4 mr-1 text-gray-400" />
-                      {facility.location}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                      {facility.dateSubmitted}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        facility.status === "approved"
-                          ? "default"
-                          : facility.status === "rejected"
-                            ? "destructive"
-                            : "secondary"
-                      }
-                    >
-                      {facility.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => openDetailModal(facility)}>
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      {facility.status === "pending" && (
-                        <>
-                          <Button variant="default" size="sm" onClick={() => handleApprove(facility.id)}>
-                            <Check className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => openRejectModal(facility)}>
-                            <X className="h-4 w-4 mr-1" />
-                            Reject
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
+          {facilities.length === 0 ? (
+            <div className="text-center py-8">
+              <Building className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">No {selectedStatus} facilities found</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Facility Name</TableHead>
+                  <TableHead>Owner</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Sports</TableHead>
+                  <TableHead>Date Submitted</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {facilities.map((facility) => (
+                  <TableRow key={facility._id}>
+                    <TableCell className="font-medium">{facility.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">
+                            {facility.owner?.name || 'Unknown Owner'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {facility.owner?.email || 'No email provided'}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        {facility.location}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {facility.sports.slice(0, 2).map((sport) => (
+                          <Badge key={sport} variant="secondary" className="text-xs">
+                            {sport}
+                          </Badge>
+                        ))}
+                        {facility.sports.length > 2 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{facility.sports.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        {formatDate(facility.createdAt)}
+                      </div>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(facility.approvalStatus)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(facility)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {facility.approvalStatus === 'pending' && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAction(facility, 'approve')}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAction(facility, 'reject')}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      {/* Detail View Modal */}
-      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+      {/* View Facility Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedFacility?.facilityName}</DialogTitle>
-            <DialogDescription>Facility Registration Details</DialogDescription>
+            <DialogTitle>{selectedFacility?.name}</DialogTitle>
+            <DialogDescription>Facility Details</DialogDescription>
           </DialogHeader>
-
+          
           {selectedFacility && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Owner Name</Label>
-                  <p className="text-sm text-gray-600">{selectedFacility.ownerName}</p>
+                  <Label className="text-sm font-medium">Owner</Label>
+                  <p className="text-sm">{selectedFacility.owner?.name || 'Unknown Owner'}</p>
+                  <p className="text-xs text-gray-500">{selectedFacility.owner?.email || 'No email provided'}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Date Submitted</Label>
-                  <p className="text-sm text-gray-600">{selectedFacility.dateSubmitted}</p>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <div className="mt-1">{getStatusBadge(selectedFacility.approvalStatus)}</div>
                 </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Location</Label>
+                <p className="text-sm">{getFullAddress(selectedFacility)}</p>
               </div>
 
               <div>
                 <Label className="text-sm font-medium">Description</Label>
-                <p className="text-sm text-gray-600 mt-1">{selectedFacility.description}</p>
+                <p className="text-sm">{selectedFacility.description || 'No description provided'}</p>
               </div>
 
               <div>
-                <Label className="text-sm font-medium">Full Address</Label>
-                <p className="text-sm text-gray-600 mt-1">{selectedFacility.address}</p>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium">Sports Supported</Label>
+                <Label className="text-sm font-medium">Sports Offered</Label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {selectedFacility.sports.map((sport) => (
-                    <Badge key={sport} variant="outline">
-                      {sport}
-                    </Badge>
+                    <Badge key={sport} variant="secondary">{sport}</Badge>
                   ))}
                 </div>
               </div>
@@ -234,96 +397,67 @@ export default function FacilityApproval() {
                 <Label className="text-sm font-medium">Amenities</Label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {selectedFacility.amenities.map((amenity) => (
-                    <Badge key={amenity} variant="secondary">
-                      {amenity}
-                    </Badge>
+                    <Badge key={amenity} variant="outline">{amenity}</Badge>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <Label className="text-sm font-medium">Photo Gallery</Label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                  {selectedFacility.photos.map((photo, index) => (
-                    <img
-                      key={index}
-                      src={photo || "/placeholder.svg"}
-                      alt={`Facility photo ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                  ))}
+              {selectedFacility.rejectionReason && (
+                <div>
+                  <Label className="text-sm font-medium text-red-600">Rejection Reason</Label>
+                  <p className="text-sm text-red-600">{selectedFacility.rejectionReason}</p>
                 </div>
-              </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-              <div>
-                <Label htmlFor="admin-comments" className="text-sm font-medium">
-                  Admin Comments
-                </Label>
-                <Textarea id="admin-comments" placeholder="Add your comments here..." className="mt-1" />
-              </div>
+      {/* Action Confirmation Dialog */}
+      <Dialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {actionType === 'approve' ? 'Approve Facility' : 'Reject Facility'}
+            </DialogTitle>
+            <DialogDescription>
+              {actionType === 'approve' 
+                ? 'Are you sure you want to approve this facility?'
+                : 'Please provide a reason for rejecting this facility.'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {actionType === 'reject' && (
+            <div className="space-y-2">
+              <Label htmlFor="reason">Rejection Reason</Label>
+              <Textarea
+                id="reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please explain why this facility is being rejected..."
+                rows={4}
+              />
             </div>
           )}
 
           <DialogFooter>
-            {selectedFacility?.status === "pending" && (
-              <>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setShowDetailModal(false)
-                    openRejectModal(selectedFacility)
-                  }}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Reject
-                </Button>
-                <Button
-                  onClick={() => {
-                    handleApprove(selectedFacility.id)
-                    setShowDetailModal(false)
-                  }}
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Approve
-                </Button>
-              </>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Modal */}
-      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Facility Registration</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to reject {selectedFacility?.facilityName}? You can add optional comments below.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="reject-comments" className="text-sm font-medium">
-                Rejection Comments (Optional)
-              </Label>
-              <Textarea
-                id="reject-comments"
-                placeholder="Provide reasons for rejection..."
-                value={rejectComments}
-                onChange={(e) => setRejectComments(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+            <Button variant="outline" onClick={() => setIsActionDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => selectedFacility && handleReject(selectedFacility.id)}>
-              <X className="h-4 w-4 mr-1" />
-              Reject Facility
+            <Button 
+              onClick={confirmAction}
+              disabled={processing || (actionType === 'reject' && !rejectionReason.trim())}
+              className={actionType === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+            >
+              {processing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  {actionType === 'approve' ? 'Approving...' : 'Rejecting...'}
+                </>
+              ) : (
+                actionType === 'approve' ? 'Approve' : 'Reject'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

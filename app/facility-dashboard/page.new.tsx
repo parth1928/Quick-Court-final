@@ -2,11 +2,76 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { HeatMapChart } from "@/components/ui/heat-map-chart"
 import { formatInr } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Building2, Calendar, DollarSign, TrendingUp, Activity } from "lucide-react"
+import { CartesianGrid, Line, LineChart, XAxis } from "recharts"
+// Chart config and data for demo
+const chartData = [
+  { month: "January", desktop: 186, mobile: 80 },
+  { month: "February", desktop: 305, mobile: 200 },
+  { month: "March", desktop: 237, mobile: 120 },
+  { month: "April", desktop: 73, mobile: 190 },
+  { month: "May", desktop: 209, mobile: 130 },
+  { month: "June", desktop: 214, mobile: 140 },
+];
+
+function ChartLineMultiple({ title, description }: { title: string; description: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <LineChart
+          width={500}
+          height={180}
+          data={chartData}
+          margin={{ left: 12, right: 12 }}
+        >
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="month"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tickFormatter={(value) => value.slice(0, 3)}
+          />
+          <Line
+            dataKey="desktop"
+            type="monotone"
+            stroke="#6366f1"
+            strokeWidth={2}
+            dot={false}
+          />
+          <Line
+            dataKey="mobile"
+            type="monotone"
+            stroke="#22d3ee"
+            strokeWidth={2}
+            dot={false}
+          />
+        </LineChart>
+      </CardContent>
+      <CardFooter>
+        <div className="flex w-full items-start gap-2 text-sm">
+          <div className="grid gap-2">
+            <div className="flex items-center gap-2 leading-none font-medium">
+              Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+            </div>
+            <div className="text-muted-foreground flex items-center gap-2 leading-none">
+              Showing total visitors for the last 6 months
+            </div>
+          </div>
+        </div>
+      </CardFooter>
+    </Card>
+  );
+}
 
 interface Booking {
   id: string
@@ -55,7 +120,26 @@ export default function FacilityDashboard() {
   useEffect(() => {
     async function fetchDashboardData() {
       try {
-        const token = localStorage.getItem("token")
+        const userStr = localStorage.getItem("user");
+        let token = localStorage.getItem("token");
+        
+        if (!userStr) {
+          console.error("No user data found");
+          return;
+        }
+        
+        const user = JSON.parse(userStr);
+        
+        // Try to get token from localStorage first, then from user object
+        if (!token && user.token) {
+          token = user.token;
+        }
+        
+        if (!token) {
+          console.error("No token found");
+          return;
+        }
+        
         const response = await fetch("/api/owner/dashboard", {
           headers: {
             Authorization: `Bearer ${token}`
@@ -174,11 +258,27 @@ export default function FacilityDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartPlaceholder
-          title="Peak Booking Hours"
-          description="Heatmap showing busiest times of day"
-          type="heatmap"
-        />
+        <Card className="border-gray-200">
+          <CardHeader>
+            <CardTitle className="text-gray-900">Peak Booking Hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <HeatMapChart
+              title="Peak Booking Hours"
+              description="Heatmap showing busiest times of day (demo data)"
+              hoursLabels={["6am", "7am", "8am", "9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm", "5pm", "6pm", "7pm", "8pm", "9pm", "10pm"]}
+              data={[
+                { day: "Mon", hours: [0, 1, 2, 3, 5, 7, 8, 6, 4, 2, 1, 0, 0, 2, 4, 6, 7] },
+                { day: "Tue", hours: [0, 0, 1, 2, 4, 6, 7, 8, 7, 5, 3, 2, 1, 2, 3, 5, 6] },
+                { day: "Wed", hours: [1, 2, 3, 4, 6, 8, 9, 7, 5, 3, 2, 1, 0, 1, 2, 4, 5] },
+                { day: "Thu", hours: [0, 1, 2, 3, 5, 7, 8, 6, 4, 2, 1, 0, 0, 2, 4, 6, 7] },
+                { day: "Fri", hours: [0, 0, 1, 2, 4, 6, 7, 8, 7, 5, 3, 2, 1, 2, 3, 5, 6] },
+                { day: "Sat", hours: [2, 3, 4, 6, 8, 10, 12, 11, 9, 7, 5, 4, 3, 4, 6, 8, 10] },
+                { day: "Sun", hours: [3, 4, 5, 7, 9, 12, 14, 13, 11, 9, 7, 6, 5, 6, 8, 10, 12] },
+              ]}
+            />
+          </CardContent>
+        </Card>
 
         {/* Recent Bookings */}
         <Card className="border-gray-200">

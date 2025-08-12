@@ -44,3 +44,40 @@ export function validateEnvVars() {
     message: 'All required environment variables are present'
   };
 }
+
+// Function to test email configuration
+export async function testEmailConfig() {
+  try {
+    console.log('🧪 Testing email configuration...');
+    
+    const validation = validateEnvVars();
+    if (!validation.valid) {
+      throw new Error(`Environment validation failed: ${validation.message}`);
+    }
+
+    // Basic configuration test - just check if the required env vars exist
+    const emailConfig = {
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    };
+
+    console.log('✅ Email configuration appears valid');
+    return {
+      success: true,
+      config: emailConfig,
+      message: 'Email configuration test passed'
+    };
+  } catch (error: any) {
+    console.error('❌ Email configuration test failed:', error.message);
+    return {
+      success: false,
+      error: error.message,
+      message: 'Email configuration test failed'
+    };
+  }
+}

@@ -79,8 +79,6 @@ export async function POST(req: Request) {
     });
 
     await otpRecord.save();
-    });
-    await otpRecord.save();
 
     // Send OTP email
     const emailSent = await sendOTPEmail({

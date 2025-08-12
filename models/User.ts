@@ -10,9 +10,14 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'owner', 'admin'], default: 'user', index: true },
   phone: { type: String, required: true },
   avatar: { type: String, default: '/placeholder-user.jpg' },
-  isBanned: { type: Boolean, default: false },
+  status: { type: String, enum: ['active', 'inactive', 'banned', 'suspended'], default: 'active', index: true },
+  isBanned: { type: Boolean, default: false }, // Legacy field for backwards compatibility
   bookingCount: { type: Number, default: 0, index: true },
   lastLoginAt: { type: Date },
+  bannedAt: { type: Date }, // Timestamp when user was banned
+  banReason: { type: String }, // Reason for ban
+  suspendedAt: { type: Date }, // Timestamp when user was suspended
+  suspensionReason: { type: String }, // Reason for suspension
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

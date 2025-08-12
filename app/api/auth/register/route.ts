@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import dbConnect from '@/lib/db/connect';
 import User from '@/models/User';
 import OTP from '@/models/OTP';
+import PendingRegistration from '@/models/PendingRegistration';
 import { generateOTP, hashOTP, createOTPExpiry, validateOTPFormat } from '@/utils/generateOtp';
 import { sendOTPEmail } from '@/utils/sendEmail';
 import { checkOTPRateLimit } from '@/utils/rateLimiting';
@@ -16,17 +17,17 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
 
-// Enhanced pending users storage with TTL
+// Enhanced pending users storage with TTL and better persistence
 class PendingUsersManager {
   private static instance: PendingUsersManager;
   private pendingUsers = new Map<string, any>();
   private cleanupInterval: NodeJS.Timeout;
 
   private constructor() {
-    // Cleanup expired entries every 5 minutes
+    // Cleanup expired entries every 2 minutes (more frequent)
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
-    }, 5 * 60 * 1000);
+    }, 2 * 60 * 1000);
   }
 
   static getInstance(): PendingUsersManager {
@@ -36,35 +37,67 @@ class PendingUsersManager {
     return PendingUsersManager.instance;
   }
 
-  set(key: string, data: any, ttlMinutes: number = 10): void {
-    this.pendingUsers.set(key, {
+  set(key: string, data: any, ttlMinutes: number = 45): void {
+    // Increased TTL to 45 minutes for better user experience
+    const expiresAt = Date.now() + (ttlMinutes * 60 * 1000);
+    const sessionData = {
       ...data,
-      expiresAt: Date.now() + (ttlMinutes * 60 * 1000)
-    });
+      expiresAt,
+      createdAt: Date.now()
+    };
+    
+    this.pendingUsers.set(key, sessionData);
+    console.log(`✅ Stored pending user session for ${data.email} - expires in ${ttlMinutes} minutes`);
+    console.log(`📊 Current sessions count: ${this.pendingUsers.size}`);
   }
 
   get(key: string): any | null {
     const data = this.pendingUsers.get(key);
-    if (!data) return null;
+    if (!data) {
+      console.log(`❌ No session found for key: ${key}`);
+      console.log(`📊 Available sessions: ${Array.from(this.pendingUsers.keys())}`);
+      return null;
+    }
     
-    if (Date.now() > data.expiresAt) {
+    const now = Date.now();
+    const isExpired = now > data.expiresAt;
+    const timeRemaining = Math.floor((data.expiresAt - now) / 1000 / 60);
+    
+    if (isExpired) {
+      console.log(`⏰ Session expired for ${key} - was created ${Math.floor((now - data.createdAt) / 1000 / 60)} minutes ago`);
       this.pendingUsers.delete(key);
       return null;
     }
     
+    console.log(`✅ Found valid session for ${key} - ${timeRemaining} minutes remaining`);
     return data;
   }
 
   delete(key: string): void {
-    this.pendingUsers.delete(key);
+    const existed = this.pendingUsers.delete(key);
+    console.log(`🗑️ Deleted session for ${key}: ${existed ? 'success' : 'not found'}`);
   }
 
   private cleanup(): void {
     const now = Date.now();
+    let cleanedCount = 0;
     for (const [key, data] of this.pendingUsers.entries()) {
       if (now > data.expiresAt) {
         this.pendingUsers.delete(key);
+        cleanedCount++;
       }
+    }
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned up ${cleanedCount} expired sessions`);
+    }
+  }
+
+  // Debug method to list all sessions
+  listSessions(): void {
+    console.log(`📋 Active sessions (${this.pendingUsers.size}):`);
+    for (const [key, data] of this.pendingUsers.entries()) {
+      const timeRemaining = Math.floor((data.expiresAt - Date.now()) / 1000 / 60);
+      console.log(`  - ${key}: ${timeRemaining}min remaining`);
     }
   }
 }
@@ -162,9 +195,9 @@ export async function POST(req: Request) {
         }, { status: 429 });
       }
 
-      // Store pending user data with TTL
+      // Store pending user data in both memory and database for redundancy
       const userKey = `pending_${normalizedEmail}`;
-      pendingUsersManager.set(userKey, {
+      const pendingData = {
         name: name.trim(),
         email: normalizedEmail,
         password,
@@ -172,7 +205,29 @@ export async function POST(req: Request) {
         role,
         clientIP,
         userAgent
-      }, 15); // 15 minutes TTL
+      };
+
+      // Store in memory
+      pendingUsersManager.set(userKey, pendingData, 45); // 45 minutes TTL
+
+      // Store in database as backup
+      try {
+        await PendingRegistration.findOneAndUpdate(
+          { email: normalizedEmail },
+          {
+            ...pendingData,
+            expiresAt: new Date(Date.now() + 45 * 60 * 1000) // 45 minutes
+          },
+          { upsert: true, new: true }
+        );
+        console.log(`💾 Stored pending registration in database for ${normalizedEmail}`);
+      } catch (dbError) {
+        console.error('❌ Failed to store pending registration in database:', dbError);
+        // Continue with memory storage only
+      }
+
+      // Debug: List all sessions
+      pendingUsersManager.listSessions();
 
       // Delete any existing OTPs for this email and purpose
       await OTP.deleteMany({ 
@@ -217,10 +272,12 @@ export async function POST(req: Request) {
         console.error(`❌ Failed to send OTP email to ${normalizedEmail}:`, emailResult.error);
         await OTP.deleteOne({ _id: otpRecord._id });
         pendingUsersManager.delete(userKey);
-        
+
+        // Expose full error for debugging (remove in production)
         let errorMessage = 'Failed to send verification email. Please try again.';
         let errorCode = 'EMAIL_FAILED';
-        
+        let errorDetail = emailResult.error || null;
+
         if (emailResult.error) {
           if (emailResult.error.includes('535-5.7.8')) {
             errorMessage = 'Email service configuration error. Please contact support.';
@@ -230,10 +287,11 @@ export async function POST(req: Request) {
             errorCode = 'EMAIL_CONNECTION_ERROR';
           }
         }
-        
+
         return NextResponse.json({
           error: errorMessage,
-          code: errorCode
+          code: errorCode,
+          detail: errorDetail
         }, { status: 500 });
       }
       
@@ -266,14 +324,77 @@ export async function POST(req: Request) {
       const normalizedEmail = email.toLowerCase();
       const userKey = `pending_${normalizedEmail}`;
 
-      // Check if pending user data exists
-      const pendingUserData = pendingUsersManager.get(userKey);
+      console.log(`🔍 Looking for session: ${userKey}`);
+      
+      // Debug: List all sessions before checking
+      pendingUsersManager.listSessions();
+
+      // Check if pending user data exists in memory first
+      let pendingUserData = pendingUsersManager.get(userKey);
+      
+      // If not found in memory, try database fallback
       if (!pendingUserData) {
+        console.log(`⚠️ Session not found in memory, checking database...`);
+        try {
+          const dbPendingUser = await PendingRegistration.findOne({ 
+            email: normalizedEmail,
+            expiresAt: { $gt: new Date() } // Still valid
+          });
+          
+          if (dbPendingUser) {
+            console.log(`✅ Found session in database for ${normalizedEmail}`);
+            pendingUserData = {
+              name: dbPendingUser.name,
+              email: dbPendingUser.email,
+              password: dbPendingUser.password,
+              phone: dbPendingUser.phone,
+              role: dbPendingUser.role,
+              clientIP: dbPendingUser.clientIP,
+              userAgent: dbPendingUser.userAgent,
+              createdAt: dbPendingUser.createdAt.getTime(),
+              expiresAt: dbPendingUser.expiresAt.getTime()
+            };
+            
+            // Restore to memory for faster access
+            const remainingMinutes = Math.floor((dbPendingUser.expiresAt.getTime() - Date.now()) / 60000);
+            pendingUsersManager.set(userKey, pendingUserData, Math.max(remainingMinutes, 5));
+            
+            console.log(`🔄 Restored session to memory with ${remainingMinutes} minutes remaining`);
+          }
+        } catch (dbError) {
+          console.error('❌ Error checking database for pending registration:', dbError);
+        }
+      }
+
+      if (!pendingUserData) {
+        console.log(`❌ Registration session expired for ${normalizedEmail}. No pending user data found in memory or database.`);
+        console.log(`🔍 Searched for key: ${userKey}`);
+        
+        // Try to find if there's a session with similar email (case sensitivity issue)
+        const allKeys = Array.from((pendingUsersManager as any).pendingUsers.keys()) as string[];
+        const similarKeys = allKeys.filter((key: string) => key.includes(normalizedEmail.split('@')[0]));
+        console.log(`🔍 Similar keys found: ${similarKeys}`);
+        
         return NextResponse.json({ 
           error: 'Registration session expired. Please sign up again.',
-          code: 'SESSION_EXPIRED'
+          code: 'SESSION_EXPIRED',
+          action: 'restart_registration',
+          debug: {
+            searchedKey: userKey,
+            availableKeys: allKeys,
+            similarKeys,
+            checkedDatabase: true
+          }
         }, { status: 410 });
       }
+
+      console.log(`✅ Found pending user data for ${normalizedEmail}`);
+      console.log(`📋 Session data:`, {
+        email: pendingUserData.email,
+        name: pendingUserData.name,
+        role: pendingUserData.role,
+        createdAt: pendingUserData.createdAt ? new Date(pendingUserData.createdAt).toISOString() : 'unknown'
+      });
 
       // Find the most recent OTP for this email and purpose
       const otpRecord = await OTP.findOne({
@@ -301,6 +422,11 @@ export async function POST(req: Request) {
       if (otpRecord.attempts >= 3) {
         await OTP.deleteOne({ _id: otpRecord._id });
         pendingUsersManager.delete(userKey);
+        // Clean up database too
+        try {
+          await PendingRegistration.deleteOne({ email: normalizedEmail });
+        } catch (e) { console.error('DB cleanup error:', e); }
+        
         return NextResponse.json({ 
           error: 'Maximum verification attempts exceeded. Please sign up again.',
           code: 'MAX_ATTEMPTS_EXCEEDED',
@@ -322,6 +448,11 @@ export async function POST(req: Request) {
         if (remainingAttempts === 0) {
           await OTP.deleteOne({ _id: otpRecord._id });
           pendingUsersManager.delete(userKey);
+          // Clean up database too
+          try {
+            await PendingRegistration.deleteOne({ email: normalizedEmail });
+          } catch (e) { console.error('DB cleanup error:', e); }
+          
           return NextResponse.json({ 
             error: 'Invalid OTP. Maximum attempts exceeded. Please sign up again.',
             code: 'INVALID_OTP_MAX_EXCEEDED',
@@ -346,18 +477,29 @@ export async function POST(req: Request) {
           role: pendingUserData.role,
         });
 
-        // Clean up
+        // Clean up both memory and database
         await OTP.deleteOne({ _id: otpRecord._id });
         pendingUsersManager.delete(userKey);
+        
+        // Clean up database pending registration
+        try {
+          await PendingRegistration.deleteOne({ email: normalizedEmail });
+          console.log(`🗑️ Cleaned up database pending registration for ${normalizedEmail}`);
+        } catch (dbError) {
+          console.error('❌ Error cleaning up database pending registration:', dbError);
+        }
 
         // Generate JWT token with proper structure matching login route
+        const tokenPayload = {
+          userId: user._id.toString(),
+          email: user.email,
+          role: user.role
+        };
+        
+        console.log('🔑 Generating JWT token with payload:', { ...tokenPayload, userId: '[REDACTED]' });
+        
         const token = jwt.sign(
-          {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-          },
+          tokenPayload,
           JWT_SECRET,
           { expiresIn: '7d' }
         );
@@ -388,9 +530,13 @@ export async function POST(req: Request) {
 
       } catch (userCreationError: any) {
         console.error('User creation error:', userCreationError);
-        // Clean up on user creation failure
+        // Clean up on user creation failure - both memory and database
         await OTP.deleteOne({ _id: otpRecord._id });
         pendingUsersManager.delete(userKey);
+        
+        try {
+          await PendingRegistration.deleteOne({ email: normalizedEmail });
+        } catch (e) { console.error('DB cleanup error:', e); }
         
         if (userCreationError.code === 11000) {
           return NextResponse.json({ 

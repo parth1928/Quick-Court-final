@@ -13,6 +13,23 @@ const courtSchema = new mongoose.Schema({
   pricing: {
     hourlyRate: { type: Number, required: true },
     currency: { type: String, default: 'INR' },
+    // Array of time slot pricing: [{ start: '06:00', end: '07:00', price: 300 }]
+    timeSlotPricing: [
+      {
+        start: { type: String, required: true }, // HH:mm
+        end: { type: String, required: true },   // HH:mm
+        price: { type: Number, required: true }
+      }
+    ],
+    // Peak hour pricing
+    peakHourRate: { type: Number },
+    peakHours: {
+      start: { type: String }, // HH:mm
+      end: { type: String }    // HH:mm
+    },
+    // Special day rates (weekends, holidays)
+    specialDayRate: { type: Number },
+    specialDays: [{ type: String }], // YYYY-MM-DD format
   },
   pricePerHour: { type: Number }, // spec alias (kept in sync in pre-save)
   operatingHours: { start: String, end: String }, // spec simplified hours
@@ -36,6 +53,18 @@ const courtSchema = new mongoose.Schema({
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   status: { type: String, enum: ['active', 'maintenance', 'inactive'], default: 'active' },
   maintenanceNotes: { type: String },
+  maxConcurrentBookings: { type: Number, default: 1 }, // For shared courts
+  minBookingDuration: { type: Number, default: 60 }, // in minutes
+  maxBookingDuration: { type: Number, default: 120 }, // in minutes
+  advanceBookingDays: { type: Number, default: 30 }, // how many days in advance can book
+  maintenanceSchedule: [{
+    date: String, // YYYY-MM-DD
+    reason: String,
+    startTime: String, // HH:mm
+    endTime: String,  // HH:mm
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now }
+  }],
   bookingDurationMinutes: { type: Number, default: 60 },
   allowDynamicPricing: { type: Boolean, default: false },
   equipmentIncluded: [{ type: String }],

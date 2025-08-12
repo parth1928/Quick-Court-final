@@ -49,19 +49,59 @@ export default function VenuesPage() {
 
   const fetchVenues = async () => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams({
-        view: 'card',
         limit: '100', // fetch a large batch to paginate client-side
         ...(selectedSport !== 'all' && { sport: selectedSport })
       })
-      const res = await fetch(`/api/venues?${params.toString()}`)
-      const json = await res.json()
+      
+      console.log('Fetching venues with params:', params.toString())
+      
+      // Try clean API first (most reliable)
+      let res = await fetch(`/api/venues/clean?${params.toString()}`)
+      let json = await res.json()
+      
+      // If clean API fails, try simple API
+      if (!res.ok || !json.venues || json.venues.length === 0) {
+        console.log('Clean API failed or returned no venues, trying simple API...')
+        res = await fetch(`/api/venues/simple?${params.toString()}`)
+        json = await res.json()
+      }
+      
+      // If still no venues, try seeding first then retry
+      if (!res.ok || !json.venues || json.venues.length === 0) {
+        console.log('No venues found, attempting to seed data...')
+        const seedRes = await fetch('/api/venues/seed', { method: 'POST' })
+        const seedJson = await seedRes.json()
+        
+        if (seedRes.ok) {
+          console.log('Seeding successful, retrying fetch...')
+          res = await fetch(`/api/venues/clean?${params.toString()}`)
+          json = await res.json()
+        }
+      }
+      
+      // Final fallback - try main API
+      if (!res.ok || !json.venues || json.venues.length === 0) {
+        console.log('Trying main venues API as fallback...')
+        res = await fetch(`/api/venues?view=card&${params.toString()}`)
+        json = await res.json()
+      }
+      
       if (!res.ok) throw new Error(json.error || 'Failed to load venues')
-      if (!json.venues) throw new Error('No venues data returned')
-      setVenues(json.venues)
+      
+      const venuesData = json.venues || []
+      console.log('Venues received:', venuesData)
+      setVenues(venuesData)
+      
+      if (venuesData.length === 0) {
+        setError('No venues available. Please try again later or contact support.')
+      }
     } catch (e: any) {
+      console.error('Error fetching venues:', e)
       setError(e.message)
+      setVenues([]) // Set empty array on error
     } finally {
       setLoading(false)
     }
